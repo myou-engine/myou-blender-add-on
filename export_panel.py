@@ -26,7 +26,9 @@ class LayoutDemoPanel(bpy.types.Panel):
         row.prop(scene, "myou_export_name_as_blend", text="Same as .blend")
         if not scene.myou_export_name_as_blend:
             col.prop(scene, "myou_export_name", text='Export name')
-
+        
+        layout.prop(scene, "myou_export_compress_scene")
+        
         layout.label(text="Encode textures:")
         layout.prop(scene, "myou_export_tex_quality", expand=True)
         
@@ -233,6 +235,7 @@ def yes_no(msg, _yes_cb, _no_cb):
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    bpy.types.Scene.myou_export_compress_scene = BoolProperty(name='Compress scene files', default=True)
     bpy.types.Scene.myou_export_PNGJPEG = BoolProperty(name='PNG/JPEG', default=True)
     bpy.types.Scene.myou_export_DXT = BoolProperty(name='S3TC', default=True)
     bpy.types.Scene.myou_export_ETC1 = BoolProperty(name='ETC1', default=True)

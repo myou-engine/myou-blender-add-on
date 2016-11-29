@@ -260,7 +260,8 @@ def ob_to_json(ob, scn=None, check_cache=False):
         cache_was_invalidated = False
         def convert(o, sort):
             nonlocal cache_was_invalidated
-            if (check_cache and not os.path.isfile(scn['game_tmp_path'] + o.data.get('cached_file', ''))\
+            cached_file = o.data.get('cached_file', '').replace('\\','/').rsplit('/',1).pop()
+            if (check_cache and not os.path.isfile(scn['game_tmp_path'] + cached_file)\
                 or o.data.get('exported_name') != o.data.name)\
                 or 'export_data' not in o.data\
                 or 'avg_poly_area' not in loads(o.data.get('export_data','{}')):
@@ -969,10 +970,12 @@ def export_myou(path, scn):
             except FileExistsError: pass
             scene_json, scene_json_gz = whole_scene_to_json(scene, used_data, textures_path)
             open(join(scn_dir, 'all.json'), 'wb').write(scene_json)
-            open(join(scn_dir, 'all.json.gz'), 'wb').write(scene_json_gz)
+            if scn.myou_export_compress_scene:
+                open(join(scn_dir, 'all.json.gz'), 'wb').write(scene_json_gz)
             for mesh_file in scene['exported_meshes'].values():
                 shutil.copy(mesh_file, scn_dir)
-                shutil.copy(mesh_file+'.gz', scn_dir)
+                if scn.myou_export_compress_scene:
+                    shutil.copy(mesh_file+'.gz', scn_dir)
         if old_export:
             shutil.rmtree(old_export, ignore_errors=False)
     except:
