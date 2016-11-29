@@ -16,8 +16,6 @@ import re
 
 tempdir  = tempfile.gettempdir()
 
-GE_PATH = os.path.realpath(__file__).rsplit(os.sep,2)[0]
-
 def search_scene_used_data(scene):
 
     used_data = {

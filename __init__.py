@@ -31,7 +31,8 @@ class ReloadMyouPlugin(bpy.types.Operator):
     def execute(self, context):
         unregister()
         reload_modules()
-        import myou_bl_plugin
+        module_name = os.path.realpath(__file__).rsplit(os.sep,2)[1]
+        myou_bl_plugin = sys.modules[module_name]
         from imp import reload
         reload(myou_bl_plugin)
         myou_bl_plugin.register()
