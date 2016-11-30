@@ -3,12 +3,33 @@ import struct
 import shutil
 import tempfile
 import os
+import urllib.request
+import zipfile
+import subprocess
 from math import *
 from json import dumps, loads
 from collections import defaultdict
 tempdir  = tempfile.gettempdir()
 
 type_to_ext = {'JPEG': 'jpg', 'TIFF': 'tif', 'TARGA': 'tga'}
+
+plugin_dir = os.path.realpath(__file__).rsplit(os.sep,2)[0]
+astc_binary_checked = False
+astc_binary = os.path.join(plugin_dir,'bin','refreshed-astc-encoder-master','Binary','Win64','astcenc.exe')
+
+def download_astc_tools_if_needed():
+    if not os.path.exists(astc_binary):
+        print("Downloading ASTC encoder from github.com/Kirpich30000")
+        tool_zip, http_msg = urllib.request.urlretrieve(
+            'https://github.com/Kirpich30000/refreshed-astc-encoder/archive/master.zip')
+        zipfile.ZipFile(tool_zip).extractall(os.path.join(plugin_dir,'bin'))
+        os.unlink(tool_zip)
+
+def encode_astc(in_path, out_path, mode, quality):
+    # quality: veryfast fast medium thorough exhaustive
+    subprocess.Popen([astc_binary, '-c', in_path, out_path,
+        mode, '-'+quality
+    ]).communicate()
 
 def save_image(image, path, new_format, resize=None):
     if resize:
@@ -115,6 +136,26 @@ def export_images(dest_path, used_data):
                 out_ext = 'png'
             for lod_level in lod_levels+[None]:
                 if path_exists or image.packed_file:
+                    
+                    if not astc_binary_checked:
+                        download_astc_tools_if_needed()
+                            
+                    if scene.myou_export_ASTC:
+                        if path_exists:
+                            file_name = image.name + '.astc'
+                            exported_path = os.path.join(dest_path, file_name)
+                            encode_astc(real_path, exported_path,
+                                scene.myou_export_astc_mode, 'medium')
+                            # TODO: query exported size?
+                            image_info['formats']['astc'].append({
+                                'width': image.size[0], 'height': image.size[1],
+                                'file_name': file_name, 'file_size': fsize(exported_path),
+                            })
+                        else:
+                            print("Warning: ASTC is not supported for packed files")
+                        
+                    
+                    
                     # image['exported_extension'] is only used
                     # for material.uniform['filepath'] which is only used
                     # in old versions of the engine.
@@ -128,9 +169,9 @@ def export_images(dest_path, used_data):
                         lod_level is None
                     if just_copy_file:
                         file_name = image.name + '.' + out_ext
-                        # The next 3 lines are only necessary for skip_conversion
-                        out_ext = image.filepath_raw.split('.')[-1]
                         exported_path = os.path.join(dest_path, file_name)
+                        # The next 2 lines are only necessary for skip_conversion
+                        out_ext = image.filepath_raw.split('.')[-1]
                         image['exported_extension'] = out_ext
                         
                         shutil.copy(real_path, exported_path)
