@@ -3,33 +3,15 @@ import struct
 import shutil
 import tempfile
 import os
-import urllib.request
-import zipfile
-import subprocess
 from math import *
 from json import dumps, loads
 from collections import defaultdict
+from .astc import *
 tempdir  = tempfile.gettempdir()
 
 type_to_ext = {'JPEG': 'jpg', 'TIFF': 'tif', 'TARGA': 'tga'}
 
-plugin_dir = os.path.realpath(__file__).rsplit(os.sep,2)[0]
 astc_binary_checked = False
-astc_binary = os.path.join(plugin_dir,'bin','refreshed-astc-encoder-master','Binary','Win64','astcenc.exe')
-
-def download_astc_tools_if_needed():
-    if not os.path.exists(astc_binary):
-        print("Downloading ASTC encoder from github.com/Kirpich30000")
-        tool_zip, http_msg = urllib.request.urlretrieve(
-            'https://github.com/Kirpich30000/refreshed-astc-encoder/archive/master.zip')
-        zipfile.ZipFile(tool_zip).extractall(os.path.join(plugin_dir,'bin'))
-        os.unlink(tool_zip)
-
-def encode_astc(in_path, out_path, mode, quality):
-    # quality: veryfast fast medium thorough exhaustive
-    subprocess.Popen([astc_binary, '-c', in_path, out_path,
-        mode, '-'+quality
-    ]).communicate()
 
 def save_image(image, path, new_format, resize=None):
     if resize:
@@ -102,8 +84,20 @@ def export_images(dest_path, used_data):
                 lod_levels = list(tex_with_settings['lod_levels'])
         
         real_path = bpy.path.abspath(image.filepath)
+        tmp_filepath = None
         path_exists = os.path.isfile(real_path)
+        # input_path is for format encoders that only understand png, jpg
+        if path_exists and image.file_format in ['PNG','JPEG']:
+            input_path = real_path
+        else:
+            input_path = tmp_filepath = tempfile.mktemp('.png')
+            save_image(image, tmp_filepath, 'PNG')
         uses_alpha = image not in non_alpha_images
+        is_sRGB = not used_data['image_is_normal_map'][image.name]
+        if is_sRGB:
+            print('Image',image.name,'is sRGB')
+        else:
+            print('Image',image.name,'is linear')
         image_info = {
             'type': 'TEXTURE',
             'name': image.name,
@@ -141,19 +135,17 @@ def export_images(dest_path, used_data):
                         download_astc_tools_if_needed()
                             
                     if scene.myou_export_ASTC:
-                        if path_exists:
-                            file_name = image.name + '.astc'
-                            exported_path = os.path.join(dest_path, file_name)
-                            encode_astc(real_path, exported_path,
-                                scene.myou_export_astc_mode, 'medium')
-                            # TODO: query exported size?
-                            image_info['formats']['astc'].append({
-                                'width': image.size[0], 'height': image.size[1],
-                                'file_name': file_name, 'file_size': fsize(exported_path),
-                            })
-                        else:
-                            print("Warning: ASTC is not supported for packed files")
-                        
+                        file_name = image.name + '.astc'
+                        exported_path = os.path.join(dest_path, file_name)
+                        quality = 'veryfast' if scene.myou_export_tex_quality=='FAST' else 'exhaustive'
+                        format_enum = encode_astc(input_path, exported_path,
+                            scene.myou_export_astc_mode, quality, is_sRGB)
+                        # TODO: query exported size?
+                        image_info['formats']['astc'].append({
+                            'width': image.size[0], 'height': image.size[1],
+                            'file_name': file_name, 'file_size': fsize(exported_path),
+                            'sRGB': is_sRGB, 'format_enum': format_enum,
+                        })
                     
                     
                     # image['exported_extension'] is only used
@@ -240,6 +232,8 @@ def export_images(dest_path, used_data):
                     files_to_delete.add(exported_path)
         for fpath in files_to_delete:
             os.unlink(fpath)
+        if tmp_filepath:
+            os.unlink(tmp_filepath)
         print()
         json_data.append(image_info)
     return json_data

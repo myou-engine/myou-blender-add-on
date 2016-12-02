@@ -24,6 +24,7 @@ def search_scene_used_data(scene):
         'textures': [],
         'images': [],
         'image_users': defaultdict(list),
+        'image_is_normal_map': {},
         'meshes': [],
         'actions': [],
         'action_users': {} # only one user of each, to get the channels
@@ -74,7 +75,8 @@ def search_scene_used_data(scene):
             used_data['materials'].append(m)
             for s in m.texture_slots:
                 if hasattr(s, 'texture') and s.texture:
-                    add_texture(s.texture,i+1)
+                    use_normal_map = getattr(s.texture, 'use_normal_map', False)
+                    add_texture(s.texture,i+1, use_normal_map)
             if m.use_nodes and m.node_tree:
                 search_in_node_tree(m.node_tree, i-1)
 
@@ -89,13 +91,14 @@ def search_scene_used_data(scene):
                 if n.node_tree:
                     search_in_node_tree(n.node_tree,i+1)
 
-    def add_texture(t,i=0):
+    def add_texture(t,i=0, is_normal=False):
         if not t in used_data['textures']:
             print('    '*i+'Tex:', t.name)
             used_data['textures'].append(t)
             if t.type == 'IMAGE' and t.image:
                 add_image(t.image,i+1)
                 used_data['image_users'][t.image.name].append(t)
+                used_data['image_is_normal_map'][t.image.name] = is_normal
 
     def add_image(i,indent=0):
         if not i in used_data['images']:
