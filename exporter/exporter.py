@@ -261,7 +261,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
         cache_was_invalidated = False
         def convert(o, sort):
             nonlocal cache_was_invalidated
-            cached_file = o.data.get('cached_file', '').replace('\\','/').rsplit('/',1).pop()
+            cached_file = o.data.get('cached_file', 'i_dont_exist').replace('\\','/').rsplit('/',1).pop()
             if (check_cache and not os.path.isfile(scn['game_tmp_path'] + cached_file)\
                 or o.data.get('exported_name') != o.data.name)\
                 or 'export_data' not in o.data\
