@@ -954,11 +954,7 @@ def export_myou(path, scn):
     full_dir = os.path.realpath(join(os.path.dirname(path), data_dir))
     old_export = ''
     if os.path.exists(full_dir):
-        bak = 1
-        while os.path.exists(full_dir+'.bak.'+str(bak)):
-            bak += 1
-        old_export = full_dir+'.bak.'+str(bak)
-        shutil.move(full_dir, old_export)
+        shutil.rmtree(full_dir, ignore_errors=False)
     try:
         os.mkdir(full_dir)
         os.mkdir(join(full_dir, 'scenes'))
@@ -977,8 +973,6 @@ def export_myou(path, scn):
                 shutil.copy(mesh_file, scn_dir)
                 if scn.myou_export_compress_scene:
                     shutil.copy(mesh_file+'.gz', scn_dir)
-        if old_export:
-            shutil.rmtree(old_export, ignore_errors=False)
     except:
         import datetime
         # shutil.move(full_dir, full_dir+'_FAILED_'+str(datetime.datetime.now()).replace(':','-').replace(' ','_').split('.')[0])
