@@ -821,7 +821,7 @@ def ob_in_layers(scn, ob):
 def ob_to_json_recursive(ob, scn=None, check_cache=False):
     d = [ob_to_json(ob, scn, check_cache)]
     for c in ob.children:
-        if ob_in_layers(scn, ob):
+        if ob_in_layers(scn, c):
             d += ob_to_json_recursive(c, scn, check_cache)
     return d
 
