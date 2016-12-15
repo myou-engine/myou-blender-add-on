@@ -28,6 +28,7 @@ class LayoutDemoPanel(bpy.types.Panel):
             col.prop(scene, "myou_export_name", text='Export name')
         
         layout.prop(scene, "myou_export_compress_scene")
+        layout.prop(scene, "myou_export_convert_to_quats")
         
         layout.label(text="Encode textures:")
         layout.prop(scene, "myou_export_tex_quality", expand=True)
@@ -236,6 +237,7 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Scene.myou_export_compress_scene = BoolProperty(name='Compress scene files', default=True)
+    bpy.types.Scene.myou_export_convert_to_quats = BoolProperty(name='Convert all rotations to quaternions', default=True)
     bpy.types.Scene.myou_export_PNGJPEG = BoolProperty(name='PNG/JPEG', default=True)
     bpy.types.Scene.myou_export_DXT = BoolProperty(name='S3TC', default=True)
     bpy.types.Scene.myou_export_ETC1 = BoolProperty(name='ETC1', default=True)
@@ -295,9 +297,6 @@ def register():
     bpy.types.Scene.myou_export_folder = StringProperty()
     bpy.types.Scene.myou_export_name_as_blend = BoolProperty(default=True)
     bpy.types.Scene.myou_export_name = StringProperty()
-    
-
-
 
 
 

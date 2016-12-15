@@ -657,27 +657,18 @@ def ob_to_json(ob, scn=None, check_cache=False):
         rot = ob.rotation_quaternion
         rot_mode = 'Q'
     elif rot_mode == 'AXIS_ANGLE':
-        raise Exception('Rotation mode not supported yet')
-    else:
-        rot = ob.rotation_euler.to_quaternion()
-        # 'WARNING: All rotations are converted to quaternions (for now).
+        print("WARNING: Axis angle not supported yet, converting to quat. Ob: "+ob.name)
+        a,x,y,z = list(ob.rotation_axis_angle)
+        sin2 = sin(a/2)
+        rot = [cos(a/2), x*sin2, y*sin2, z*sin2]
         rot_mode = 'Q'
-
-
-    # # Calculate local matrix to extract the hidden
-    # # parent matrix, particularly the scale
-    #
-    # m = Matrix()
-    # m[0][0],m[1][1],m[2][2] = ob.scale
-    # real_local_matrix = (Matrix.Translation(ob.location) * rot.to_matrix().to_4x4() * m)
-    # hidden_matrix = ob.matrix_local * real_local_matrix.inverted()
-    #
-    # # Extracting rotation and location from computed local
-    # # matrix instead of the real local
-    # m3 = ob.matrix_local.to_3x3()
-    # rot_mode = 'Q'
-    # rot = m3.to_quaternion()
-
+    elif scn.myou_export_convert_to_quats:
+        rot = ob.rotation_euler.to_quaternion()
+        rot_mode = 'Q'
+    else:
+        rot = [0] + list(ob.rotation_euler)
+    
+    # used for physics properties
     first_mat = ob.material_slots and ob.material_slots[0].material
 
     game_properties = {}
@@ -765,16 +756,13 @@ def action_to_json(action, ob):
 
     CHANNEL_SIZES = {'position': 3,
                      'rotation': 4, # quats with W
-                     'rotation_euler': 3, # TODO: IGNORED
+                     'rotation_euler': 3,
                      'scale': 3,
                      'color': 4}
     for fcurve in action.fcurves:
         path = fcurve.data_path.rsplit('.',1)
         chan = path[-1].replace('location', 'position')\
                        .replace('rotation_quaternion', 'rotation')
-        if 'rotation_euler' in path[-1]:
-            # TODO: Not supported yet
-            continue
         if len(path) == 1:
             type = 'object'
             name = ''
