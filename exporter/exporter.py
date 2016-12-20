@@ -27,7 +27,7 @@ def search_scene_used_data(scene):
         'image_is_normal_map': {},
         'meshes': [],
         'actions': [],
-        'action_users': {} # only one user of each, to get the channels
+        'action_users': {}, # only one user of each, to get the channels
         }
 
     #recursive search methods for each data type:
@@ -60,6 +60,16 @@ def search_scene_used_data(scene):
                         add_action(action, i+1)
                         used_data['action_users'][action.name] = ob
 
+                if ob.animation_data and ob.animation_data.nla_tracks:
+                    any_solo = any([track.is_solo for track in ob.animation_data.nla_tracks])
+                    for track in ob.animation_data.nla_tracks:
+                        if (any_solo and not track.is_solo) or track.mute:
+                            # solo shot first
+                            continue
+                        for strip in track.strips:
+                            if strip.type == 'CLIP' and not strip.mute:
+                                add_action(strip.action, i+1)
+                                used_data['action_users'][strip.action.name] = ob
 
         for ob in ob.children:
             add_ob(ob, i+1)
@@ -690,6 +700,33 @@ def ob_to_json(ob, scn=None, check_cache=False):
     if ob.animation_data and ob.animation_data.action and ob.animation_data.action.fcurves:
         implicit_actions = [ob.animation_data.action.name]
 
+    strips = []
+    if ob.animation_data and ob.animation_data.nla_tracks:
+        any_solo = any([track.is_solo for track in ob.animation_data.nla_tracks])
+        for track in ob.animation_data.nla_tracks:
+            if (any_solo and not track.is_solo) or track.mute:
+                # solo shot first
+                continue
+            for strip in track.strips:
+                if strip.type == 'CLIP' and not strip.mute:
+                    # Strips are added in the correct order of evaluation
+                    # (tracks are from bottom to top
+                    strips.append({
+                        'type': 'CLIP',
+                        'extrapolation': strip.extrapolation,
+                        'blend_type': strip.blend_type,
+                        'frame_start': strip.frame_start,
+                        'frame_end': strip.frame_end,
+                        'blend_in': strip.blend_in,
+                        'blend_out': strip.blend_out,
+                        'reversed': strip.use_reverse,
+                        'action': strip.action.name,
+                        'action_frame_start': strip.action_frame_start,
+                        'action_frame_end': strip.action_frame_end,
+                        'scale': strip.scale,
+                        'repeat': strip.repeat,
+                    })
+
     obj = {
         'scene': scn.name,
         'type': obtype,
@@ -707,6 +744,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
         'parent': parent,
         'parent_bone': ob.parent_bone if parent and ob.parent.type == 'ARMATURE' and ob.parent_type == 'BONE' else '',
         'actions': ob['actions'] if 'actions' in ob else implicit_actions,
+        'animation_strips': strips,
         'dupli_group': ob.dupli_group.name
             if ob.dupli_type=='GROUP' and ob.dupli_group else None,
 
