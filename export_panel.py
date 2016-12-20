@@ -109,11 +109,11 @@ class SelectExportPath(bpy.types.Operator):
             # http://mstratman.github.io/cocoadialog/
             popup_message('TODO: OSX Folder selection dialog with cocoaDialog')
         elif os.environ.get('KDE_FULL_SESSION'):
-            subprocess.Popen(
+            path = subprocess.Popen(
                 ['kdialog','--getexistingdirectory','~'],
                 stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
         else:
-            subprocess.Popen(
+            path = subprocess.Popen(
                 ['zenity','--file-selection','--directory'],
                 stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
         if path:
