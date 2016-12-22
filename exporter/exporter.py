@@ -153,7 +153,12 @@ def scene_data_to_json(scn=None):
         'frame_start': scn.frame_start,
         'frame_end': scn.frame_end,
         'fps': scn.render.fps,
-        }
+        'markers': sorted([{
+            'name': m.name,
+            'frame': m.frame,
+            'camera': m.camera and m.camera.name or '',
+        } for m in scn.timeline_markers], key=lambda m:m['frame']),
+    }
     return scene_data
 
 #ported from animations.py
@@ -790,7 +795,6 @@ def action_to_json(action, ob):
     # left handle, point, right handle
 
     channels = {} # each key is the tuple (type, name, channel)
-    markers = {}
 
     CHANNEL_SIZES = {'position': 3,
                      'rotation': 4, # quats with W
@@ -841,13 +845,15 @@ def action_to_json(action, ob):
                  k.handle_right.y]
             l.extend(p)
 
-    for m in action.pose_markers:
-        markers[m.name] = m.frame
-
     final_action = {'type': 'ACTION',
                     'name': action.name,
                     'channels': [list(k)+[v] for (k,v) in channels.items()],
-                    'markers': markers}
+                    'markers': sorted([{
+                        'name': m.name,
+                        'frame': m.frame,
+                        'camera': m.camera and m.camera.name or '',
+                    } for m in action.pose_markers], key=lambda m:m['frame']),
+    }
 
     return final_action
 
