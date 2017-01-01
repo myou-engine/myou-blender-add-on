@@ -11,8 +11,12 @@ ASTC_SRGB_FORMATS = {
     '10x8': 0x93DA,'10x10': 0x93DB,'12x10': 0x93DC,'12x12': 0x93DD}
 
 plugin_dir = os.path.realpath(__file__).rsplit(os.sep,2)[0]
-# TODO: detect platform
-astc_binary = os.path.join(plugin_dir,'bin','refreshed-astc-encoder-master','Binary','Win64','astcenc.exe')
+if os.name == 'nt':
+    astc_binary = os.path.join(plugin_dir,'bin','refreshed-astc-encoder-master','Binary','Win64','astcenc.exe')
+elif os.uname().sysname == 'Linux':
+    astc_binary = os.path.join(plugin_dir,'bin','refreshed-astc-encoder-master','Binary','Linux32','astcenc')
+else:
+    astc_binary = os.path.join(plugin_dir,'bin','refreshed-astc-encoder-master','Binary','MacOS','astcenc')
 
 def download_astc_tools_if_needed():
     if not os.path.exists(astc_binary):
@@ -21,6 +25,8 @@ def download_astc_tools_if_needed():
             'https://github.com/Kirpich30000/refreshed-astc-encoder/archive/master.zip')
         zipfile.ZipFile(tool_zip).extractall(os.path.join(plugin_dir,'bin'))
         os.unlink(tool_zip)
+    if os.name != 'nt':
+        os.chmod(astc_binary, 0o777)
 
 def encode_astc(in_path, out_path, mode, quality, is_sRGB):
     # quality: veryfast fast medium thorough exhaustive
