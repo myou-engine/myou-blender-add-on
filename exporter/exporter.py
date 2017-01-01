@@ -28,6 +28,7 @@ def search_scene_used_data(scene):
         'meshes': [],
         'actions': [],
         'action_users': {}, # only one user of each, to get the channels
+        'sounds': {},
         }
 
     #recursive search methods for each data type:
@@ -120,12 +121,19 @@ def search_scene_used_data(scene):
             print('    '*i+'Mes:', m.name)
             used_data['meshes'].append(m)
 
+    def add_seq_strip(strip):
+        if strip.type=='SOUND':
+            used_data['sounds'][strip.sound.name] = strip.sound.filepath
+
     # Searching and storing stuff in use:
     print('\nSearching used data in the scene: ' + scene.name + '\n')
 
     for ob in scene.objects:
         if not ob.parent:
             add_ob(ob)
+
+    for s in scene.sequence_editor.sequences_all:
+        add_seq_strip(s)
 
     print("\nObjects:", len(used_data['objects']), "Meshes:", \
         len(used_data['meshes']), "Materials:", len(used_data['materials']), \
@@ -158,6 +166,11 @@ def scene_data_to_json(scn=None):
             'frame': m.frame,
             'camera': m.camera and m.camera.name or '',
         } for m in scn.timeline_markers], key=lambda m:m['frame']),
+        'sequencer_strips':  sorted([{
+            'frame_start': s.frame_start,
+            'type': s.type,
+            'sound': s.sound.name if s.type=='SOUND' else '',
+        } for s in scn.sequence_editor.sequences_all], key=lambda m:m['frame_start']),
     }
     return scene_data
 
@@ -991,9 +1004,11 @@ def export_myou(path, scn):
         os.mkdir(full_dir)
         os.mkdir(join(full_dir, 'scenes'))
         os.mkdir(join(full_dir, 'textures'))
+        os.mkdir(join(full_dir, 'sounds'))
         for scene in bpy.data.scenes:
             used_data = search_scene_used_data(scene)
             textures_path = join(full_dir, 'textures')
+            sounds_path = join(full_dir, 'sounds')
             scn_dir = join(full_dir, 'scenes', scene.name)
             try: os.mkdir(scn_dir)
             except FileExistsError: pass
@@ -1005,6 +1020,10 @@ def export_myou(path, scn):
                 shutil.copy(mesh_file, scn_dir)
                 if scn.myou_export_compress_scene:
                     shutil.copy(mesh_file+'.gz', scn_dir)
+            for name,filepath in used_data['sounds'].items():
+                apath = bpy.path.abspath(filepath)
+                shutil.copy(apath, join(sounds_path, name))
+
     except:
         import datetime
         # shutil.move(full_dir, full_dir+'_FAILED_'+str(datetime.datetime.now()).replace(':','-').replace(' ','_').split('.')[0])
