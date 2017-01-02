@@ -148,6 +148,7 @@ def search_scene_used_data(scene):
 def scene_data_to_json(scn=None):
     scn = scn or bpy.context.scene
     world = scn.world or bpy.data.scenes['Scene'].world
+    sequences = (scn.sequence_editor and scn.sequence_editor.sequences_all) or []
     scene_data = {
         'type':'SCENE',
         'name': scn.name,
@@ -170,7 +171,7 @@ def scene_data_to_json(scn=None):
             'frame_start': s.frame_start,
             'type': s.type,
             'sound': s.sound.name if s.type=='SOUND' else '',
-        } for s in scn.sequence_editor.sequences_all], key=lambda m:m['frame_start']),
+        } for s in sequences], key=lambda m:m['frame_start']),
     }
     return scene_data
 
