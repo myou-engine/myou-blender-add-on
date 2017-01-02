@@ -132,7 +132,7 @@ def search_scene_used_data(scene):
         if not ob.parent:
             add_ob(ob)
 
-    sequences = (scene.sequence_editor and scn.sequence_editor.sequences_all) or []
+    sequences = (scene.sequence_editor and scene.sequence_editor.sequences_all) or []
     for s in sequences:
         add_seq_strip(s)
 
@@ -302,7 +302,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
                         if split_parts > 10:
                             raise Exception("Mesh "+o.name+" is too big.")
                         split_parts += 1
-            
+
             if check_cache:
                 scn['exported_meshes'][o.data['hash']] = scn['game_tmp_path'] + o.data['cached_file']
 
@@ -480,7 +480,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
                         scn['embed_mesh_hashes'][phy_mesh_data['hash']] = True
                         embed_modifiers.remove(m)
                     phy_modifier.show_viewport = False
-                
+
                 if embed_modifiers:
                     print('TODO! Embed mesh modifier without being LoD or Phy')
 
@@ -697,7 +697,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
         rot_mode = 'Q'
     else:
         rot = [0] + list(ob.rotation_euler)
-    
+
     # used for physics properties
     first_mat = ob.material_slots and ob.material_slots[0].material
 
@@ -916,7 +916,7 @@ def whole_scene_to_json(scn, used_data, textures_path):
     scn['exported_meshes'] = {}
     scn['embed_mesh_hashes'] = {}
     scn['game_tmp_path'] = get_scene_tmp_path(scn) # TODO: have a changed_scene function
-    
+
     # Start exporting scene settings, then the objects
     ret = [scene_data_to_json(scn)]
     for ob in used_data['objects']:
@@ -958,7 +958,7 @@ def whole_scene_to_json(scn, used_data, textures_path):
     if previous_scn:
         bpy.context.screen.scene = previous_scn
     return [retb, retb_gz]
-    
+
 
 def get_scene_tmp_path(scn):
     dir = os.path.join(tempdir, 'scenes', scn.name + os.sep)
