@@ -1,3 +1,5 @@
+GOOGOL = 1e100
+
 import bpy, bmesh, os, struct, gzip, hashlib, random
 from mathutils import *
 from json import loads, dumps
@@ -360,8 +362,13 @@ def convert_mesh(ob, scn, split_parts=1, sort=True):
     # print('Getting average polygon area:')
     areas = [0] * len(ob.data.polygons)
     ob.data.polygons.foreach_get('area', areas)
-    avg_poly_area = sum(areas)/len(ob.data.polygons)
-    print(avg_poly_area)
+    poly_len = len(ob.data.polygons)
+    if poly_len:
+        avg_poly_area = sum(areas)/poly_len
+        print(avg_poly_area)
+    else:
+        avg_poly_area = GOOGOL
+        print("WARNING: This mesh has no polygons. The avg_poly_area of this object will be estimated as 1 Googol (1e100)")
 
 
 
