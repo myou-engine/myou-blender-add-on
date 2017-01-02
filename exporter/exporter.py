@@ -132,7 +132,8 @@ def search_scene_used_data(scene):
         if not ob.parent:
             add_ob(ob)
 
-    for s in scene.sequence_editor.sequences_all:
+    sequences = (scene.sequence_editor and scn.sequence_editor.sequences_all) or []
+    for s in sequences:
         add_seq_strip(s)
 
     print("\nObjects:", len(used_data['objects']), "Meshes:", \
