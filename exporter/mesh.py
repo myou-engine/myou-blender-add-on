@@ -823,6 +823,7 @@ def convert_mesh(ob, scn, split_parts=1, sort=True):
         'avg_poly_area': avg_poly_area,
         'tris_count': tris_count,
         'center': [(min_v[0]+max_v[0])*0.5, (min_v[1]+max_v[1])*0.5, (min_v[2]+max_v[2])*0.5],
+        'bbox': [min_v[0], min_v[1], min_v[2], max_v[0], max_v[1], max_v[2]],
     })
 
     ob.data['exported_name'] = ob.data.name
