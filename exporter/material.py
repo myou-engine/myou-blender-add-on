@@ -235,6 +235,7 @@ def mat_to_json(mat, scn):
                 if ob.particle_systems:
                     num_partsegments = 1  # TODO check correct p systems and segments
                 if ob.parent and ob.parent.type == 'ARMATURE' and ob.parent_type != 'BONE' and not ob.get('apply_armature'):
+                    print("Material", mat.name, "has armature", ob.parent.name, "because of mesh", ob.name)
                     num_bones = max(num_bones, len([b for b in ob.parent.data.bones if b.use_deform]))
                     if ob.get('weights6'): weights6 = True
     if num_shapes:
@@ -299,7 +300,7 @@ def mat_to_json(mat, scn):
                     b'\x00'+u['texpixels'][:1024])) + png_chunk(b'IEND', b'')
                     #for some reason is 257px?
                 ).decode()
-                
+
                 u['image'] = hex(hash(u['filepath']))[-15:]
                 u['wrap'] = 'C' # clamp to edge
                 u['type'] = gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE
