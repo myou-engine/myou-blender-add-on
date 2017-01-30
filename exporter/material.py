@@ -104,6 +104,7 @@ def mat_to_json(mat, scn):
         .replace('if (depth > 8) {', 'if (depth > 8.0) {') \
         .replace('if (depth > 9) {', 'if (depth > 9.0) {') \
         .replace('fac = 1;', 'fac = 1.0;') \
+        .replace('outv = -v;','outv = vec3(0.0)-v;') \
         .replace('''/* These are needed for high quality bump mapping */
 #version 130
 #extension GL_ARB_texture_query_lod: enable
