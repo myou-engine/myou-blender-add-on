@@ -104,6 +104,7 @@ def mat_to_json(mat, scn):
         .replace('if (depth > 8) {', 'if (depth > 8.0) {') \
         .replace('if (depth > 9) {', 'if (depth > 9.0) {') \
         .replace('fac = 1;', 'fac = 1.0;') \
+        .replace('outv = -v;','outv = vec3(0.0)-v;') \
         .replace('''/* These are needed for high quality bump mapping */
 #version 130
 #extension GL_ARB_texture_query_lod: enable
@@ -122,6 +123,8 @@ def mat_to_json(mat, scn):
             pass
 
     shader['fragment'] = ('\n'+parts[1]+'}').replace('sampler2DShadow','sampler2D')\
+        # TODO: The next line is a workaround. Find a better solution.
+        .replace('vec3 facingnormal = (gl_FrontFacing)? varnormal: -varnormal;', 'vec3 facingnormal = varnormal;') \
         .replace('\nin ', '\nvarying ')
     shader['fragment'] = re.sub(r'[^\x00-\x7f]',r'', shader['fragment'])
 
@@ -232,6 +235,7 @@ def mat_to_json(mat, scn):
                 if ob.particle_systems:
                     num_partsegments = 1  # TODO check correct p systems and segments
                 if ob.parent and ob.parent.type == 'ARMATURE' and ob.parent_type != 'BONE' and not ob.get('apply_armature'):
+                    print("Material", mat.name, "has armature", ob.parent.name, "because of mesh", ob.name)
                     num_bones = max(num_bones, len([b for b in ob.parent.data.bones if b.use_deform]))
                     if ob.get('weights6'): weights6 = True
     if num_shapes:
@@ -296,7 +300,7 @@ def mat_to_json(mat, scn):
                     b'\x00'+u['texpixels'][:1024])) + png_chunk(b'IEND', b'')
                     #for some reason is 257px?
                 ).decode()
-                
+
                 u['image'] = hex(hash(u['filepath']))[-15:]
                 u['wrap'] = 'C' # clamp to edge
                 u['type'] = gpu.GPU_DYNAMIC_SAMPLER_2DIMAGE
