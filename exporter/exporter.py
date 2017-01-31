@@ -94,7 +94,7 @@ def search_scene_used_data(scene):
                 use_normal_maps = use_normal_maps or search_in_node_tree(m.node_tree, i-1)
             used_data['materials'].append(m)
             used_data['material_use_tangent'][m.name] = use_normal_maps
-        return use_normal_map
+        return use_normal_maps
 
     # NOTE: It assumes that there is no cyclic dependencies in node groups.
     def search_in_node_tree(tree,i=0):
