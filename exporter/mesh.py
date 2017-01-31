@@ -49,7 +49,7 @@ def multiuser_apply_local_transform(ob):
 
 
 
-def convert_mesh(ob, scn, split_parts=1, sort=True):
+def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
     print("\n------------------------------")
     print("exporting:",ob.name)
     print("------------------------------")
@@ -252,6 +252,8 @@ def convert_mesh(ob, scn, split_parts=1, sort=True):
     verts = ob.data.vertices
     polys = ob.data.polygons
     for uv_layer in ob.data.uv_layers[-1:]:
+        if not export_tangents:
+            continue
         uv_data = uv_layer.data
         tangents = []
         for i in range(len(uv_layer.data)//3):

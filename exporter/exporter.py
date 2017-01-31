@@ -21,6 +21,7 @@ def search_scene_used_data(scene):
     used_data = {
         'objects': [],
         'materials': [],
+        'material_use_tangent': {},
         'textures': [],
         'images': [],
         'image_users': defaultdict(list),
@@ -81,26 +82,33 @@ def search_scene_used_data(scene):
             used_data['actions'].append(action)
 
     def add_material(m,i=0):
+        use_normal_maps = False
         if not m in used_data['materials']:
             print('    '*i+'Mat:', m.name)
-            used_data['materials'].append(m)
             for s in m.texture_slots:
                 if hasattr(s, 'texture') and s.texture:
                     use_normal_map = getattr(s.texture, 'use_normal_map', False)
                     add_texture(s.texture,i+1, use_normal_map)
+                    use_normal_maps = use_normal_maps or use_normal_map
             if m.use_nodes and m.node_tree:
-                search_in_node_tree(m.node_tree, i-1)
+                use_normal_maps = use_normal_maps or search_in_node_tree(m.node_tree, i-1)
+            used_data['materials'].append(m)
+            used_data['material_use_tangent'][m.name] = use_normal_maps
+        return use_normal_map
 
     # NOTE: It assumes that there is no cyclic dependencies in node groups.
     def search_in_node_tree(tree,i=0):
+        use_normal_map = False
         for n in tree.nodes:
             if (n.bl_idname == 'ShaderNodeMaterial' or n.bl_idname == 'ShaderNodeExtendedMaterial') and n.material:
-                add_material(n.material,i+1)
+                use_normal_map = use_normal_map or add_material(n.material,i+1)
             elif n.bl_idname == 'ShaderNodeTexture' and n.texture:
+                use_normal_map = use_normal_map or getattr(s.texture, 'use_normal_map', False)
                 add_texture(n.texture,i+1)
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
                     search_in_node_tree(n.node_tree,i+1)
+        return use_normal_map
 
     def add_texture(t,i=0, is_normal=False):
         if not t in used_data['textures']:
@@ -276,7 +284,7 @@ def calc_curve_nodes(curves, resolution):
 
     return calculated_nodes
 
-def ob_to_json(ob, scn=None, check_cache=False):
+def ob_to_json(ob, scn, check_cache, used_data):
     scn = scn or [scn for scn in bpy.data.scenes if ob.name in scn.objects][0]
     scn['game_tmp_path'] = get_scene_tmp_path(scn) # TODO: have a changed_scene function
     data = {}
@@ -284,6 +292,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
     obtype = ob.type
 
     if obtype=='MESH':
+        generate_tangents = any([used_data['material_use_tangent'][m.material.name] for m in ob.material_slots if m.material])
         if check_cache:
             print('Checking cache: ',ob.name, scn.name)
         # TODO: QUIRK: when the scene name is changed, cache is not invalidated
@@ -298,7 +307,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
                 or 'avg_poly_area' not in loads(o.data.get('export_data','{}')):
                     cache_was_invalidated = True
                     split_parts = 1
-                    while not convert_mesh(o, scn, split_parts, sort):
+                    while not convert_mesh(o, scn, split_parts, sort, generate_tangents):
                         if split_parts > 10:
                             raise Exception("Mesh "+o.name+" is too big.")
                         split_parts += 1
@@ -389,7 +398,7 @@ def ob_to_json(ob, scn=None, check_cache=False):
                         ob.modifiers[-1].use_collapse_triangulate = True
 
                     try:
-                        if not convert_mesh(ob, scn, 1, True):
+                        if not convert_mesh(ob, scn, 1, True, generate_tangents):
                             raise Exception("Decimated LoD mesh of "+name+" is too big")
 
                         lod_exported_meshes[lod_mesh['hash']] = scn['game_tmp_path'] + lod_mesh['cached_file']
@@ -877,11 +886,11 @@ def ob_in_layers(scn, ob):
     return any(a and b for a,b in zip(scn.layers, ob.layers))
 
 
-def ob_to_json_recursive(ob, scn=None, check_cache=False):
-    d = [ob_to_json(ob, scn, check_cache)]
+def ob_to_json_recursive(ob, scn, check_cache, used_data):
+    d = [ob_to_json(ob, scn, check_cache, used_data)]
     for c in ob.children:
         if ob_in_layers(scn, c):
-            d += ob_to_json_recursive(c, scn, check_cache)
+            d += ob_to_json_recursive(c, scn, check_cache, used_data)
     return d
 
 def embed_meshes(scn):
@@ -922,7 +931,7 @@ def whole_scene_to_json(scn, used_data, textures_path):
     for ob in used_data['objects']:
         if ob.parent:
             continue
-        ret += ob_to_json_recursive(ob, scn, True)
+        ret += ob_to_json_recursive(ob, scn, True, used_data)
     # This uses embed_mesh_hashes created above then filled in ob_to_json_recursive
     ret += embed_meshes(scn)
     # TODO: this is not currently used
