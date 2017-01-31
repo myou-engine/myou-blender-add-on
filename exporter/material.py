@@ -123,8 +123,6 @@ def mat_to_json(mat, scn):
             pass
 
     shader['fragment'] = ('\n'+parts[1]+'}').replace('sampler2DShadow','sampler2D')\
-        # TODO: The next line is a workaround. Find a better solution.
-        .replace('vec3 facingnormal = (gl_FrontFacing)? varnormal: -varnormal;', 'vec3 facingnormal = varnormal;') \
         .replace('\nin ', '\nvarying ')
     shader['fragment'] = re.sub(r'[^\x00-\x7f]',r'', shader['fragment'])
 
