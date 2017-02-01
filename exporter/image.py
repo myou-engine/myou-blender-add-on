@@ -207,11 +207,20 @@ def export_images(dest_path, used_data):
             image['exported_extension'] = out_ext
             if path_exists:
                 shutil.copy(real_path, exported_path)
-                image_info['formats'][image.file_format.lower()].append({
+                file_format = image.file_format.lower()
+                file_name_extension = file_name.split('.')[-1].lower()
+
+                # unsuported video file_format in blender
+                if file_format != file_name_extension:
+                    print("WARNING: File format doesn't match file name extension")
+                if file_name_extension in ['mp4', 'webm', 'ogg']:
+                    file_format = file_name_extension
+
+                image_info['formats'][file_format].append({
                     'width': image.size[0], 'height': image.size[1],
                     'file_name': file_name, 'file_size': fsize(exported_path),
                 })
-                print('Copied original video')
+                print('Copied original video:' + file_name + ' format:' + image.file_format.lower())
         else:
             raise Exception('Image source not supported: ' + image.name + ' source: ' + image.source)
         
