@@ -838,10 +838,10 @@ def action_to_json(action, ob):
             if type.startswith('pose.'):
                 type = 'pose'
 
-                if not hasattr(ob.data, 'bones'):
+                if not hasattr(ob.data, 'bones') or not name in ob.data.bones:
                     # don't animate this channel (a bone that no longer exists was animated)
                     continue
-
+                    
                 bone = ob.data.bones[name]
                 if chan == 'position' and bone.parent and bone.use_connect:
                     # don't animate this channel, in blender it doesn't affect
