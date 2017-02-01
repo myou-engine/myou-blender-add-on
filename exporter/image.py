@@ -270,7 +270,7 @@ def get_non_alpha_images(used_data):
             # If it's not a format known to not have alpha channel,
             # make sure it has an alpha channel at all
             # by saving it as PNG and parsing the meta data
-            if image.file_format not in ['JPEG', 'TIFF']:
+            if image.file_format not in ['JPEG', 'TIFF'] and image.frame_duration < 2:
                 path = bpy.path.abspath(image.filepath)
                 if image.file_format == 'PNG' and os.path.isfile(path):
                     if not png_file_has_alpha(path):
