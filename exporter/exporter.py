@@ -715,7 +715,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
 
     game_properties = {}
     for k,v in ob.items():
-        if k not in ['modifiers_were_applied', 'zindex', 'cycles', 'cycles_visibility']:
+        if k not in ['modifiers_were_applied', 'zindex', 'cycles', 'cycles_visibility', '_RNA_UI']:
             if hasattr(v, 'to_list'):
                 v = v.to_list()
             elif hasattr(v, 'to_dict'):
