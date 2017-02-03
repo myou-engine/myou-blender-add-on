@@ -301,10 +301,11 @@ def ob_to_json(ob, scn, check_cache, used_data):
         def convert(o, sort):
             nonlocal cache_was_invalidated
             cached_file = o.data.get('cached_file', 'i_dont_exist').replace('\\','/').rsplit('/',1).pop()
-            if (check_cache and not os.path.isfile(scn['game_tmp_path'] + cached_file)\
+            invalid_cache = (not os.path.isfile(scn['game_tmp_path'] + cached_file)\
                 or o.data.get('exported_name') != o.data.name)\
                 or 'export_data' not in o.data\
-                or 'avg_poly_area' not in loads(o.data.get('export_data','{}')):
+                or 'avg_poly_area' not in loads(o.data.get('export_data','{}'))
+            if not check_cache or invalid_cache:
                     cache_was_invalidated = True
                     split_parts = 1
                     while not convert_mesh(o, scn, split_parts, sort, generate_tangents):
@@ -312,13 +313,13 @@ def ob_to_json(ob, scn, check_cache, used_data):
                             raise Exception("Mesh "+o.name+" is too big.")
                         split_parts += 1
 
-            if check_cache:
-                scn['exported_meshes'][o.data['hash']] = scn['game_tmp_path'] + o.data['cached_file']
+            scn['exported_meshes'][o.data['hash']] = scn['game_tmp_path'] + o.data['cached_file']
+            return get_data_with_materials(o)
 
+        def get_data_with_materials(o):
             d = loads(o.data['export_data'])
             materials = []
             passes = []
-
             # material_indexes is only used to have retro compatibility.
             for i in o.data.get('material_indices', o.data.get('material_indexes', [])):
                 n = 'Material'
@@ -402,7 +403,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
                             raise Exception("Decimated LoD mesh of "+name+" is too big")
 
                         lod_exported_meshes[lod_mesh['hash']] = scn['game_tmp_path'] + lod_mesh['cached_file']
-                        lod_data = loads(lod_mesh['export_data'])
+                        lod_data = get_data_with_materials(ob)
 
                         exported_factor = lod_data['tris_count']/tris_count
                         print('Exported LoD mesh with factor:', exported_factor)
@@ -416,6 +417,8 @@ def ob_to_json(ob, scn, check_cache, used_data):
                             'uv_multiplier': lod_data['uv_multiplier'],
                             'shape_multiplier': lod_data['shape_multiplier'],
                             'avg_poly_area': lod_data.get('avg_poly_area', None),
+                            'materials': lod_data['materials'],
+                            'passes': lod_data['passes'],
                         })
                     finally:
                         if factor:
