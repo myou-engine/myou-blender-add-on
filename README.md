@@ -7,7 +7,7 @@ To have optimized assets you can import, edit or create any material, mesh and t
 
 # Installing Myou Blender Plugin
 
-- Install [Blender 2.78](http://download.blender.org/release/Blender2.78/) (future versions are likely to work but not guaranteed).
+- Install [Blender 2.71](http://download.blender.org/release/Blender2.71/) (future versions are likely to work but not guaranteed).
 
 - Download Myou blender plugin in ZIP format from "clone or download" in github, or use [this link](https://github.com/myou-engine/myou-blender-plugin/archive/master.zip)
 
@@ -73,28 +73,31 @@ To be able to change or update the plugin without creating a ZIP or copying file
 
 Windows
 ```
-C:\Users\%username%\AppData\Roaming\Blender Foundation\Blender\2.78\scripts\addons
+C:\Users\%username%\AppData\Roaming\Blender Foundation\Blender\2.71\scripts\addons
 ```
 
 Linux
 ```
-/home/$user/.config/blender/2.78/scripts/addons
+/home/$user/.config/blender/2.71/scripts/addons
 ```
 
 Then link myou-blender-plugin to Blender addons folder. Replace `[Path to myou-blender-plugin]` to the full local path of the repository.
 
 Windows (cmd or cygwin)
 ```
- cmd /c mklink /j "%APPDATA%/Blender Foundation/Blender/2.78/scripts/addons/myou-blender-plugin" "[Path to myou-blender-plugin]"
+ cmd /c mklink /j "%APPDATA%/Blender Foundation/Blender/2.71/scripts/addons/myou-blender-plugin" "[Path to myou-blender-plugin]"
 ```
 
 Linux
 ```
-ln -s "[Path to myou-blender-plugin]" "/home/$user/.config/blender/2.78/scripts/addons"
+ln -s "[Path to myou-blender-plugin]" "/home/$user/.config/blender/2.71/scripts/addons"
 ```
 
 ### Reload
 
 In Blender, press space, search "myou" and select "Reload Myou plugin". It will try to reload changes to the plugin. This feature may crash Blender so make sure to have your data saved.
+
+### Blender 2.78 support
+This blender version is currently supported, but materials are not being exported correctly. We are working to get full support to blender 2.78 as soon as posible. 
 
 # WORK IN PROGRESS
