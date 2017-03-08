@@ -52,7 +52,7 @@ def export_images(dest_path, used_data):
         os.mkdir(dest_path)
     elif not os.path.isdir(dest_path):
         raise Exception("Destination path is not a directory: "+dest_path)
-    
+
     pack_generated_images(used_data)
     non_alpha_images = get_non_alpha_images(used_data)
 
@@ -64,7 +64,7 @@ def export_images(dest_path, used_data):
     for image in used_data['images']:
         if image.source == 'VIEWER':
             raise ValueError('You are using a render result as texture, please save it as image first.')
-        
+
         # Find settings in textures. Since there's no UI in Blender for
         # custom properties of images, we'll look at them in textures.
         tex_with_settings = None
@@ -75,19 +75,19 @@ def export_images(dest_path, used_data):
                 else:
                     raise Exception('There are several textures with settings for image '+image.name+':\n'+
                         tex_with_settings.name+' and '+tex.name+'. Please remove settings from one of them')
-            
+
         lod_levels = []
         if tex_with_settings:
             if isinstance(tex_with_settings['lod_levels'], str):
                 lod_levels = loads(tex_with_settings['lod_levels'])
             else:
                 lod_levels = list(tex_with_settings['lod_levels'])
-        
+
         real_path = bpy.path.abspath(image.filepath)
         tmp_filepath = None
         path_exists = os.path.isfile(real_path)
         # input_path is for format encoders that only understand png, jpg
-        if path_exists and image.file_format in ['PNG','JPEG']:
+        if path_exists and (image.file_format in ['PNG','JPEG'] or image.source == 'MOVIE'):
             input_path = real_path
         else:
             input_path = tmp_filepath = tempfile.mktemp('.png')
@@ -114,7 +114,7 @@ def export_images(dest_path, used_data):
             'filter': None,
             'use_mipmap': None,
         }
-        
+
         num_tex_users = len(used_data['image_users'][image.name])
         print('Exporting image:', image.name, 'with', num_tex_users, 'texture users')
         if uses_alpha:
@@ -130,10 +130,10 @@ def export_images(dest_path, used_data):
                 out_ext = 'png'
             for lod_level in lod_levels+[None]:
                 if path_exists or image.packed_file:
-                    
+
                     if not astc_binary_checked:
                         download_astc_tools_if_needed()
-                            
+
                     if scene.myou_export_ASTC:
                         file_name = image.name + '.astc'
                         exported_path = os.path.join(dest_path, file_name)
@@ -146,14 +146,14 @@ def export_images(dest_path, used_data):
                             'file_name': file_name, 'file_size': fsize(exported_path),
                             'sRGB': is_sRGB, 'format_enum': format_enum,
                         })
-                    
-                    
+
+
                     # image['exported_extension'] is only used
                     # for material.uniform['filepath'] which is only used
                     # in old versions of the engine.
                     # Current versions use the exported list of textures instead
                     image['exported_extension'] = out_ext
-                    
+
                     # Cases in which we can or must skip conversion
                     just_copy_file = \
                         path_exists and \
@@ -165,7 +165,7 @@ def export_images(dest_path, used_data):
                         # The next 2 lines are only necessary for skip_conversion
                         out_ext = image.filepath_raw.split('.')[-1]
                         image['exported_extension'] = out_ext
-                        
+
                         shutil.copy(real_path, exported_path)
                         image_info['formats'][out_format.lower()].append({
                             'width': image.size[0], 'height': image.size[1],
@@ -183,11 +183,10 @@ def export_images(dest_path, used_data):
                             save_image(image, exported_path, out_format, resize=(width, height))
                             image_info['formats'][out_format.lower()].append({
                                 'width': width, 'height': height,
-                                # 'file_name': file_name,
-                                'data_uri': file_path_to_data_uri(exported_path, out_format),
+                                'file_name': file_name,
                                 'file_size': fsize(exported_path),
                             })
-                            
+
                             print('Image resized to '+str(lod_level)+' and exported as '+out_format)
                         else:
                             file_name = image.name + '.' + out_ext
@@ -223,7 +222,7 @@ def export_images(dest_path, used_data):
                 print('Copied original video:' + file_name + ' format:' + image.file_format.lower())
         else:
             raise Exception('Image source not supported: ' + image.name + ' source: ' + image.source)
-        
+
         # Embed all images that are 64x64 or lower, and delete the files
         # To change the default 64x64, add an 'embed_max_size' property
         # to the scene, set the value (as integer) and a max range >= the value
