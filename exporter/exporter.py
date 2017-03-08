@@ -84,6 +84,7 @@ def search_scene_used_data(scene):
     def add_material(m,i=0):
         use_normal_maps = False
         if not m in used_data['materials']:
+            used_data['materials'].append(m)
             print('    '*i+'Mat:', m.name)
             for s in m.texture_slots:
                 if hasattr(s, 'texture') and s.texture:
@@ -92,7 +93,6 @@ def search_scene_used_data(scene):
                     use_normal_maps = use_normal_maps or use_normal_map
             if m.use_nodes and m.node_tree:
                 use_normal_maps = use_normal_maps or search_in_node_tree(m.node_tree, i-1)
-            used_data['materials'].append(m)
             used_data['material_use_tangent'][m.name] = use_normal_maps
         return use_normal_maps
 
