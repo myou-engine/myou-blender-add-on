@@ -844,7 +844,7 @@ def action_to_json(action, ob):
                 if not hasattr(ob.data, 'bones') or not name in ob.data.bones:
                     # don't animate this channel (a bone that no longer exists was animated)
                     continue
-                    
+
                 bone = ob.data.bones[name]
                 if chan == 'position' and bone.parent and bone.use_connect:
                     # don't animate this channel, in blender it doesn't affect
@@ -1037,7 +1037,13 @@ def export_myou(path, scn):
             for name,filepath in used_data['sounds'].items():
                 apath = bpy.path.abspath(filepath)
                 shutil.copy(apath, join(sounds_path, name))
-
+            blend_dir = bpy.data.filepath.rsplit(os.sep, 1)[0]#.replace('\\','/')
+            for fname in scene.myou_export_copy_files.split(' '):
+                apath = join(blend_dir, fname)
+                oname = fname.replace(os.sep, '/').replace('../','')
+                print("exists",apath,os.path.isfile(apath))
+                if fname and os.path.isfile(apath):
+                    shutil.copy(apath, join(full_dir, oname))
     except:
         import datetime
         # shutil.move(full_dir, full_dir+'_FAILED_'+str(datetime.datetime.now()).replace(':','-').replace(' ','_').split('.')[0])

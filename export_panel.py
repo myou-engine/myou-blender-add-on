@@ -15,7 +15,7 @@ class LayoutDemoPanel(bpy.types.Panel):
         layout = self.layout
 
         scene = context.scene
-        
+
         col = layout.column(align=True)
         split = col.split(percentage=0.9, align=True)
         split.prop(scene, "myou_export_folder", text='Export path')
@@ -26,13 +26,14 @@ class LayoutDemoPanel(bpy.types.Panel):
         row.prop(scene, "myou_export_name_as_blend", text="Same as .blend")
         if not scene.myou_export_name_as_blend:
             col.prop(scene, "myou_export_name", text='Export name')
-        
+
         layout.prop(scene, "myou_export_compress_scene")
         layout.prop(scene, "myou_export_convert_to_quats")
-        
+        layout.prop(scene, "myou_export_copy_files")
+
         layout.label(text="Encode textures:")
         layout.prop(scene, "myou_export_tex_quality", expand=True)
-        
+
         split = layout.split(percentage=0.9, align=True)
         row = split.row(align=True)
         row.prop(scene, "myou_export_PNGJPEG")
@@ -61,7 +62,7 @@ class LayoutDemoPanel(bpy.types.Panel):
         row.prop(scene, "myou_export_ASTC")
         row.prop(scene, "myou_export_astc_mode", text='')
         split.operator("myou.todo", text='', icon='QUESTION')
-        
+
         layout.operator("myou.set_tex_defaults", text='Reset defaults')
         layout.operator("myou.todo", text='Generate previews')
         # col = layout.column(align=True)
@@ -198,7 +199,7 @@ class No(bpy.types.Operator):
 class PopupMenu(bpy.types.Menu):
     bl_label = ""
     bl_idname = "OBJECT_MT_customized_popup_menu"
-    
+
     def draw(self, context):
         layout = self.layout
         if menu_type == 'yes no':
@@ -244,7 +245,7 @@ def register():
     bpy.types.Scene.myou_export_ETC2 = BoolProperty(name='ETC2', default=True)
     bpy.types.Scene.myou_export_PVRTC = BoolProperty(name='PVRTC', default=True)
     bpy.types.Scene.myou_export_ASTC = BoolProperty(name='ASTC', default=True)
-    
+
     bpy.types.Scene.myou_export_tex_quality = EnumProperty(items=(
             ("FAST", "Fast export", "Encode textures as fast as possible"),
             ("BEST", "Best quality", "Encode textures with best quality (slow)"),
@@ -293,10 +294,11 @@ def register():
         name="ASTC block size",
         description="ASTC block size (affecting size and visual quality)",
         default="6x6") # If you change default, change it also in SetTexDefaults
-        
+
     bpy.types.Scene.myou_export_folder = StringProperty()
     bpy.types.Scene.myou_export_name_as_blend = BoolProperty(default=True)
     bpy.types.Scene.myou_export_name = StringProperty()
+    bpy.types.Scene.myou_export_copy_files = StringProperty(name='Copy extra files', description='Copy these files after export, relative to .blend file and separated by spaces')
 
 
 
