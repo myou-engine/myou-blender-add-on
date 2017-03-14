@@ -50,6 +50,10 @@ def search_scene_used_data(scene):
                     if hasattr(s,'material') and s.material:
                         add_material(s.material, i+1)
 
+                animation_datas = [ob.animation_data]
+                if ob.type=='MESH' and ob.data and ob.data.shape_keys:
+                    animation_datas.append(ob.data.shape_keys.animation_data)
+
                 if 'actions' in ob:
                     for action_name in ob['actions']:
                         if action_name in bpy.data.actions:
@@ -57,21 +61,23 @@ def search_scene_used_data(scene):
                             used_data['action_users'][action_name] = ob
                 else:
                     # see implicit_actions in ob_to_json
-                    if ob.animation_data and ob.animation_data.action and ob.animation_data.action.fcurves:
-                        action = ob.animation_data.action
-                        add_action(action, i+1)
-                        used_data['action_users'][action.name] = ob
+                    for animation_data in animation_datas:
+                        if animation_data and animation_data.action and animation_data.action.fcurves:
+                            action = animation_data.action
+                            add_action(action, i+1)
+                            used_data['action_users'][action.name] = ob
 
-                if ob.animation_data and ob.animation_data.nla_tracks:
-                    any_solo = any([track.is_solo for track in ob.animation_data.nla_tracks])
-                    for track in ob.animation_data.nla_tracks:
-                        if (any_solo and not track.is_solo) or track.mute:
-                            # solo shot first
-                            continue
-                        for strip in track.strips:
-                            if strip.type == 'CLIP' and not strip.mute:
-                                add_action(strip.action, i+1)
-                                used_data['action_users'][strip.action.name] = ob
+                for animation_data in animation_datas:
+                    if animation_data and animation_data.nla_tracks:
+                        any_solo = any([track.is_solo for track in animation_data.nla_tracks])
+                        for track in animation_data.nla_tracks:
+                            if (any_solo and not track.is_solo) or track.mute:
+                                # solo shot first
+                                continue
+                            for strip in track.strips:
+                                if strip.type == 'CLIP' and not strip.mute:
+                                    add_action(strip.action, i+1)
+                                    used_data['action_users'][strip.action.name] = ob
 
         for ob in ob.children:
             add_ob(ob, i+1)
@@ -729,34 +735,40 @@ def ob_to_json(ob, scn, check_cache, used_data):
         parent = ob.parent.proxy.name
 
     implicit_actions = []
-    if ob.animation_data and ob.animation_data.action and ob.animation_data.action.fcurves:
-        implicit_actions = [ob.animation_data.action.name]
-
     strips = []
-    if ob.animation_data and ob.animation_data.nla_tracks:
-        any_solo = any([track.is_solo for track in ob.animation_data.nla_tracks])
-        for track in ob.animation_data.nla_tracks:
-            if (any_solo and not track.is_solo) or track.mute:
-                # solo shot first
-                continue
-            for strip in track.strips:
-                if strip.type == 'CLIP' and not strip.mute:
-                    # Strips are added in the correct order of evaluation
-                    # (tracks are from bottom to top
-                    strips.append({
-                        'type': 'CLIP',
-                        'extrapolation': strip.extrapolation,
-                        'blend_type': strip.blend_type,
-                        'frame_start': strip.frame_start,
-                        'frame_end': strip.frame_end,
-                        'blend_in': strip.blend_in,
-                        'blend_out': strip.blend_out,
-                        'reversed': strip.use_reverse,
-                        'action': strip.action.name,
-                        'action_frame_start': strip.action_frame_start,
-                        'action_frame_end': strip.action_frame_end,
-                        'scale': strip.scale,
-                        'repeat': strip.repeat,
+
+    animation_datas = [ob.animation_data]
+    if ob.type=='MESH' and ob.data and ob.data.shape_keys:
+        animation_datas.append(ob.data.shape_keys.animation_data)
+
+    for animation_data in animation_datas:
+        if animation_data and animation_data.action and animation_data.action.fcurves:
+            implicit_actions = [animation_data.action.name]
+
+        if animation_data and animation_data.nla_tracks:
+            any_solo = any([track.is_solo for track in animation_data.nla_tracks])
+            for track in animation_data.nla_tracks:
+                if (any_solo and not track.is_solo) or track.mute:
+                    # solo shot first
+                    continue
+                for strip in track.strips:
+                    if strip.type == 'CLIP' and not strip.mute:
+                        # Strips are added in the correct order of evaluation
+                        # (tracks are from bottom to top
+                        strips.append({
+                            'type': 'CLIP',
+                            'extrapolation': strip.extrapolation,
+                            'blend_type': strip.blend_type,
+                            'frame_start': strip.frame_start,
+                            'frame_end': strip.frame_end,
+                            'blend_in': strip.blend_in,
+                            'blend_out': strip.blend_out,
+                            'reversed': strip.use_reverse,
+                            'action': strip.action.name,
+                            'action_frame_start': strip.action_frame_start,
+                            'action_frame_end': strip.action_frame_end,
+                            'scale': strip.scale,
+                            'repeat': strip.repeat,
                     })
 
     obj = {
