@@ -100,6 +100,7 @@ class SelectExportPath(bpy.types.Operator):
             return subprocess.Popen(['uname'], stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
         # TODO: In all cases, make loop that sends window to front until process
         # has finished
+        current = bpy.context.scene.myou_export_folder or bpy.path.abspath('//')
         if os.name == 'nt':
             from . import winutils
             path = subprocess.Popen(
@@ -111,9 +112,11 @@ class SelectExportPath(bpy.types.Operator):
             popup_message('TODO: OSX Folder selection dialog with cocoaDialog')
         elif os.environ.get('KDE_FULL_SESSION'):
             path = subprocess.Popen(
-                ['kdialog','--getexistingdirectory','~'],
+                ['kdialog','--getexistingdirectory', current or '~'],
                 stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
         else:
+            # TODO: check if file dialog is in foreground in gnome
+            current and os.chdir(current)
             path = subprocess.Popen(
                 ['zenity','--file-selection','--directory'],
                 stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
