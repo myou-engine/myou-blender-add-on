@@ -876,12 +876,24 @@ def action_to_json(action, ob):
             idx = (idx - 1) % 4
         #print(k, fcurve.array_index)
         l = channels[k][idx]
+        last_was_linear = False
         for k in fcurve.keyframe_points:
             p = [k.handle_left.x,
                  k.handle_left.y,
                  k.co.x, k.co.y,
                  k.handle_right.x,
                  k.handle_right.y]
+            if last_was_linear:
+                p[0] = p[2]
+                p[1] = p[3]
+                last_was_linear = False
+            if k.interpolation == 'CONSTANT':
+                p[4] = 1e200
+                p[5] = p[3]
+            elif k.interpolation == 'LINEAR':
+                p[4] = p[2]
+                p[5] = p[3]
+                last_was_linear = True
             l.extend(p)
 
     final_action = {'type': 'ACTION',
