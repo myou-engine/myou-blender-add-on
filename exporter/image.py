@@ -14,6 +14,7 @@ type_to_ext = {'JPEG': 'jpg', 'TIFF': 'tif', 'TARGA': 'tga'}
 astc_binary_checked = False
 
 def save_image(image, path, new_format, resize=None):
+    name = image.name
     if resize:
         image = image.copy()
         image.scale(resize[0], resize[1])
@@ -31,7 +32,11 @@ def save_image(image, path, new_format, resize=None):
 
     # Save image, this does NOT render anything!
     # It only means that the save command will use the current scene's render settings.
-    image.save_render(path)
+    has_error = False
+    try:
+        image.save_render(path)
+    except:
+        has_error = True
 
     # Restore previous render settings
     settings.file_format = format
@@ -41,6 +46,8 @@ def save_image(image, path, new_format, resize=None):
     if resize:
         image.user_clear()
         bpy.data.images.remove(image)
+    if has_error:
+        raise Exception("Couldn't export image: "+image.name+". Please replace it or disable the texture slot.")
 
 
 def export_images(dest_path, used_data):
@@ -62,6 +69,7 @@ def export_images(dest_path, used_data):
     skip_conversion = scene.get('skip_texture_conversion')
 
     for image in used_data['images']:
+        print('Img:', image.name)
         if image.source == 'VIEWER':
             raise ValueError('You are using a render result as texture, please save it as image first.')
 

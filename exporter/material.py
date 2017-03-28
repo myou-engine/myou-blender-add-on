@@ -270,7 +270,7 @@ def mat_to_json(mat, scn):
             if os.path.isfile(fpath):
                 u['size'] = os.path.getsize(fpath)
             # u['filepath'] is only used in old versions of the engine
-            u['filepath'] = u['image'].name + '.' + u['image']['exported_extension']
+            u['filepath'] = u['image'].name + '.' + u['image'].get('exported_extension', fpath.split('.').pop())
             u['image'] = u['image'].name
             tex_sizes[u['image']] = u['size']
         if 'texpixels' in u:

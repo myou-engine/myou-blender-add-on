@@ -92,8 +92,8 @@ def search_scene_used_data(scene):
         if not m in used_data['materials']:
             used_data['materials'].append(m)
             print('    '*i+'Mat:', m.name)
-            for s in m.texture_slots:
-                if hasattr(s, 'texture') and s.texture:
+            for s,enabled in zip(m.texture_slots, m.use_textures):
+                if enabled and hasattr(s, 'texture') and s.texture:
                     use_normal_map = getattr(s.texture, 'use_normal_map', False)
                     add_texture(s.texture,i+1, use_normal_map)
                     use_normal_maps = use_normal_maps or use_normal_map
@@ -378,7 +378,8 @@ def ob_to_json(ob, scn, check_cache, used_data):
                 lod_level_data = []
                 lod_exported_meshes = {}
 
-                data['phy_mesh'] = None
+                if 'phy_mesh' in data:
+                    del data['phy_mesh']
                 phy_lod = ob.get('phy_lod', None)
 
                 # Support two formats of "lod_levels":
