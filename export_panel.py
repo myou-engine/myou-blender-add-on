@@ -100,7 +100,7 @@ class SelectExportPath(bpy.types.Operator):
             return subprocess.Popen(['uname'], stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
         # TODO: In all cases, make loop that sends window to front until process
         # has finished
-        current = bpy.context.scene.myou_export_folder or bpy.path.abspath('//')
+        current = bpy.path.abspath(bpy.context.scene.myou_export_folder) or bpy.path.abspath('//')
         if os.name == 'nt':
             from . import winutils
             path = subprocess.Popen(
@@ -121,6 +121,8 @@ class SelectExportPath(bpy.types.Operator):
                 ['zenity','--file-selection','--directory'],
                 stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
         if path:
+            if bpy.data.is_saved:
+                path = bpy.path.relpath(path)
             bpy.context.scene.myou_export_folder = path
         return {'FINISHED'}
 
@@ -159,7 +161,10 @@ class DoExport(bpy.types.Operator):
                 popup_message('Save the file or provide an export name')
                 return {'FINISHED'}
             outname = bpy.data.filepath.replace(os.sep,'/').rsplit('/',1)[1].rsplit('.',1)[0]
-        exporter.export_myou(os.path.join(scene.myou_export_folder, outname), scene)
+        if bpy.data.is_saved and scene.myou_export_folder \
+                and not scene.myou_export_folder.startswith('//'):
+            scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
+        exporter.export_myou(os.path.join(bpy.path.abspath(scene.myou_export_folder), outname), scene)
         return {'FINISHED'}
 
 class TODO(bpy.types.Operator):
