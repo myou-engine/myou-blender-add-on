@@ -38,7 +38,7 @@ def search_scene_used_data(scene):
         'image_is_normal_map': {},
         'meshes': [],
         'actions': [],
-        'action_users': {}, # only one user of each, to get the channels
+        'action_users': {}, # only one user (ob or material) of each, to get the channels
         'sounds': {},
         }
 
@@ -60,34 +60,9 @@ def search_scene_used_data(scene):
                     if hasattr(s,'material') and s.material:
                         add_material(s.material, i+1)
 
-                animation_datas = [ob.animation_data]
+                add_animation_data(ob.animation_data, ob, i+1)
                 if ob.type=='MESH' and ob.data and ob.data.shape_keys:
-                    animation_datas.append(ob.data.shape_keys.animation_data)
-
-                if 'actions' in ob:
-                    for action_name in ob['actions']:
-                        if action_name in bpy.data.actions:
-                            add_action(bpy.data.actions[action_name], i+1)
-                            used_data['action_users'][action_name] = ob
-                else:
-                    # see implicit_actions in ob_to_json
-                    for animation_data in animation_datas:
-                        if animation_data and animation_data.action and animation_data.action.fcurves:
-                            action = animation_data.action
-                            add_action(action, i+1)
-                            used_data['action_users'][action.name] = ob
-
-                for animation_data in animation_datas:
-                    if animation_data and animation_data.nla_tracks:
-                        any_solo = any([track.is_solo for track in animation_data.nla_tracks])
-                        for track in animation_data.nla_tracks:
-                            if (any_solo and not track.is_solo) or track.mute:
-                                # solo shot first
-                                continue
-                            for strip in track.strips:
-                                if strip.type == 'CLIP' and not strip.mute:
-                                    add_action(strip.action, i+1)
-                                    used_data['action_users'][strip.action.name] = ob
+                    add_animation_data(ob.data.shape_keys.animation_data, ob, i+1)
 
         for ob in ob.children:
             add_ob(ob, i+1)
@@ -107,8 +82,10 @@ def search_scene_used_data(scene):
                     use_normal_map = getattr(s.texture, 'use_normal_map', False)
                     add_texture(s.texture,i+1, use_normal_map)
                     use_normal_maps = use_normal_maps or use_normal_map
+            add_animation_data(m.animation_data, m, i+1)
             if m.use_nodes and m.node_tree:
                 use_normal_maps = use_normal_maps or search_in_node_tree(m.node_tree, i-1)
+                add_animation_data(m.node_tree.animation_data, m.node_tree, i+1)
             used_data['material_use_tangent'][m.name] = use_normal_maps
         return use_normal_maps
 
@@ -148,6 +125,24 @@ def search_scene_used_data(scene):
     def add_seq_strip(strip):
         if strip.type=='SOUND':
             used_data['sounds'][strip.sound.name] = strip.sound.filepath
+
+    def add_animation_data(animation_data, user, i=0):
+        any_solo = False
+        if animation_data and animation_data.nla_tracks:
+            any_solo = any([track.is_solo for track in animation_data.nla_tracks])
+            for track in animation_data.nla_tracks:
+                if (any_solo and not track.is_solo) or track.mute:
+                    # solo shot first
+                    continue
+                for strip in track.strips:
+                    if strip.type == 'CLIP' and not strip.mute:
+                        add_action(strip.action, i+1)
+                        used_data['action_users'][strip.action.name] = user
+
+        action = animation_data and animation_data.action
+        if not any_solo and action and action.fcurves:
+            add_action(action, i+1)
+            used_data['action_users'][action.name] = user
 
     # Searching and storing stuff in use:
     print('\nSearching used data in the scene: ' + scene.name + '\n')
@@ -747,43 +742,9 @@ def ob_to_json(ob, scn, check_cache, used_data):
     if parent and ob.parent.proxy:
         parent = ob.parent.proxy.name
 
-    implicit_actions = []
-    strips = []
-
-    animation_datas = [ob.animation_data]
+    strips = get_animation_data_strips(ob.animation_data)
     if ob.type=='MESH' and ob.data and ob.data.shape_keys:
-        animation_datas.append(ob.data.shape_keys.animation_data)
-
-    for animation_data in animation_datas:
-        if animation_data and animation_data.action and animation_data.action.fcurves:
-            implicit_actions = [animation_data.action.name]
-
-        if animation_data and animation_data.nla_tracks:
-            any_solo = any([track.is_solo for track in animation_data.nla_tracks])
-            for track in animation_data.nla_tracks:
-                if (any_solo and not track.is_solo) or track.mute:
-                    # solo shot first
-                    continue
-                for strip in track.strips:
-                    if strip.type == 'CLIP' and not strip.mute:
-                        # Strips are added in the correct order of evaluation
-                        # (tracks are from bottom to top
-                        strips.append({
-                            'type': 'CLIP',
-                            'extrapolation': strip.extrapolation,
-                            'blend_type': strip.blend_type,
-                            'frame_start': strip.frame_start,
-                            'frame_end': strip.frame_end,
-                            'blend_in': strip.blend_in,
-                            'blend_out': strip.blend_out,
-                            'reversed': strip.use_reverse,
-                            'action': strip.action.name,
-                            'action_frame_start': strip.action_frame_start,
-                            'action_frame_end': strip.action_frame_end,
-                            'scale': strip.scale,
-                            'repeat': strip.repeat,
-                            'name': strip.name or strip.action.name,
-                    })
+        strips += get_animation_data_strips(ob.data.shape_keys.animation_data)
 
     obj = {
         'scene': scn.name,
@@ -801,7 +762,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
         'color' : list(ob.color),
         'parent': parent,
         'parent_bone': ob.parent_bone if parent and ob.parent.type == 'ARMATURE' and ob.parent_type == 'BONE' else '',
-        'actions': ob['actions'] if 'actions' in ob else implicit_actions,
+        'actions': [], # DEPRECATED
         'animation_strips': strips,
         'dupli_group': ob.dupli_group.name
             if ob.dupli_type=='GROUP' and ob.dupli_group else None,
@@ -835,10 +796,56 @@ def ob_to_json(ob, scn, check_cache, used_data):
     obj.update(data)
     return obj
 
+def get_animation_data_strips(animation_data): # TODO add prefix?
+    strips = []
+    any_solo = False
+    if animation_data and animation_data.nla_tracks:
+        any_solo = any([track.is_solo for track in animation_data.nla_tracks])
+        for track in animation_data.nla_tracks:
+            if (any_solo and not track.is_solo) or track.mute:
+                # solo shot first
+                continue
+            for strip in track.strips:
+                if strip.type == 'CLIP' and not strip.mute:
+                    # Strips are added in the correct order of evaluation
+                    # (tracks are from bottom to top)
+                    strips.append({
+                        'type': 'CLIP',
+                        'extrapolation': strip.extrapolation,
+                        'blend_type': strip.blend_type,
+                        'frame_start': strip.frame_start,
+                        'frame_end': strip.frame_end,
+                        'blend_in': strip.blend_in,
+                        'blend_out': strip.blend_out,
+                        'reversed': strip.use_reverse,
+                        'action': strip.action.name,
+                        'action_frame_start': strip.action_frame_start,
+                        'action_frame_end': strip.action_frame_end,
+                        'scale': strip.scale,
+                        'repeat': strip.repeat,
+                    })
+    action = animation_data and animation_data.action
+    if action and action.fcurves:
+        strips.append({
+            'type': 'CLIP',
+            'extrapolation': 'HOLD',
+            'blend_type': 'REPLACE',
+            'frame_start': action.frame_range[0],
+            'frame_end': action.frame_range[1],
+            'blend_in': 0,
+            'blend_out': 0,
+            'reversed': False,
+            'action': action.name,
+            'action_frame_start': action.frame_range[0],
+            'action_frame_end': action.frame_range[1],
+            'scale': 1,
+            'repeat': 1,
+        })
+    return strips
 
 
 def action_to_json(action, ob):
-    # ob is any object which uses this, to check for use_connect
+    # ob is any object or material which uses this, to check for use_connect
     # TYPE, NAME, CHANNEL, list of keys for each element
     # 'object', '', 'location', [[x keys], [y keys], [z keys]]
     # 'pose', bone_name, 'location', [...]
@@ -862,9 +869,9 @@ def action_to_json(action, ob):
             type = 'object'
             name = ''
         else:
-            #print(path)
-            type, name, _ = path[0].split('"')
-            if type.startswith('pose.'):
+            print(path)
+            if path[0].startswith('pose.'):
+                type, name, _ = path[0].split('"')
                 type = 'pose'
 
                 if not hasattr(ob.data, 'bones') or not name in ob.data.bones:
@@ -877,10 +884,10 @@ def action_to_json(action, ob):
                     # but in the engine it produces undesired results
                     continue
 
-            elif type.startswith('key_blocks'):
+            elif path[0].startswith('key_blocks'):
                 type = 'shape'
             else:
-                print('Unknown fcurve path:', path[0])
+                print('Unknown fcurve path:', path[0], ob.type)
                 continue
         k = type, name, chan
         if not k in channels:
