@@ -770,6 +770,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
                             'action_frame_end': strip.action_frame_end,
                             'scale': strip.scale,
                             'repeat': strip.repeat,
+                            'name': strip.name or strip.action.name,
                     })
 
     obj = {
