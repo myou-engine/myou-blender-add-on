@@ -2,7 +2,9 @@ import bpy, os
 from bpy.props import *
 import subprocess
 from .exporter import exporter
+from bpy.app.handlers import persistent
 
+scene_update_post_tasks = []
 
 class LayoutDemoPanel(bpy.types.Panel):
     bl_label = "Myou engine export"
@@ -169,7 +171,18 @@ class DoExport(bpy.types.Operator):
             scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
         if scene.myou_export_goto_start_timeline:
             bpy.ops.screen.frame_jump(end=False)
-        exporter.export_myou(os.path.join(bpy.path.abspath(scene.myou_export_folder), outname), scene)
+        def f(x):
+            try:
+                context.window_manager.progress_begin(0,10000)
+                bpy.context.window_manager.progress_update(0)
+                exporter.export_myou(
+                    os.path.join(bpy.path.abspath(scene.myou_export_folder), outname), scene)
+            except Exception as e:
+                context.window_manager.progress_end()
+                popup_message('Error: '+str(e)+' (see console for details)')
+                raise e
+            bpy.context.window_manager.progress_end()
+        scene_update_post_tasks.append(f)
         return {'FINISHED'}
 
 class TODO(bpy.types.Operator):
@@ -314,6 +327,11 @@ def register():
     bpy.types.Scene.myou_export_name = StringProperty()
     bpy.types.Scene.myou_export_copy_files = StringProperty(name='Copy extra files', description='Copy these files after export, relative to .blend file and separated by spaces')
 
+    @persistent
+    def f(scene):
+        if scene_update_post_tasks:
+            scene_update_post_tasks.pop(0)(scene)
+    bpy.app.handlers.scene_update_post.append(f)
 
 
 def unregister():

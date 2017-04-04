@@ -16,6 +16,16 @@ import re
 
 tempdir  = tempfile.gettempdir()
 
+progress = 0
+def add_progress(x=1):
+    global progress
+    progress += x
+    bpy.context.window_manager.progress_update(progress)
+
+def reset_progress():
+    global progress
+    progress = 0
+
 def search_scene_used_data(scene):
 
     used_data = {
@@ -291,6 +301,7 @@ def calc_curve_nodes(curves, resolution):
     return calculated_nodes
 
 def ob_to_json(ob, scn, check_cache, used_data):
+    add_progress()
     scn = scn or [scn for scn in bpy.data.scenes if ob.name in scn.objects][0]
     scn['game_tmp_path'] = get_scene_tmp_path(scn) # TODO: have a changed_scene function
     data = {}
@@ -314,6 +325,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
             if not check_cache or invalid_cache:
                     cache_was_invalidated = True
                     split_parts = 1
+                    add_progress()
                     while not convert_mesh(o, scn, split_parts, sort, generate_tangents):
                         if split_parts > 10:
                             raise Exception("Mesh "+o.name+" is too big.")
@@ -973,7 +985,7 @@ def whole_scene_to_json(scn, used_data, textures_path):
                 'objects': [o.name for o in group.objects],
                 })
     # Export shader lib, textures (images), materials, actions
-    image_json = image.export_images(textures_path, used_data)
+    image_json = image.export_images(textures_path, used_data, add_progress)
     mat_json = [mat_to_json(mat, scn) for mat in used_data['materials']]
     act_json = [action_to_json(action, used_data['action_users'][action.name]) for action in used_data['actions']]
     # We must export shader lib after materials, but engine has to read it before
@@ -1027,7 +1039,7 @@ def menu_export(self, context):
     self.layout.operator(MyouEngineExporter.bl_idname, text="Myou Engine")
 
 def export_myou(path, scn):
-    # assuming exec_custom_build_command() has executed successfully
+    reset_progress()
 
     join = os.path.join
 

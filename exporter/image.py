@@ -50,7 +50,7 @@ def save_image(image, path, new_format, resize=None):
         raise Exception("Couldn't export image: "+image.name+". Please replace it or disable the texture slot.")
 
 
-def export_images(dest_path, used_data):
+def export_images(dest_path, used_data, add_progress=lambda x:x):
     '''
     This converts/copies all used images and returns encoded JSON with *textures*
     '''
@@ -69,6 +69,7 @@ def export_images(dest_path, used_data):
     skip_conversion = scene.get('skip_texture_conversion')
 
     for image in used_data['images']:
+        add_progress()
         print('Img:', image.name)
         if image.source == 'VIEWER':
             raise ValueError('You are using a render result as texture, please save it as image first.')

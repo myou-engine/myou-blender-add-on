@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Myou game engine",
     "author": "Alberto Torres Ruiz, Julio Manuel López Tercero",
-    "version": (0, 4),
+    "version": (0, 5),
     "blender": (2, 69, 0),
     "location": "File > Export > Myou engine",
     "description": "Myou.cat game engine and Myou Logic Nodes compiler.",
