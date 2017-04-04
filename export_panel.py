@@ -27,6 +27,7 @@ class LayoutDemoPanel(bpy.types.Panel):
         if not scene.myou_export_name_as_blend:
             col.prop(scene, "myou_export_name", text='Export name')
 
+        layout.prop(scene, "myou_export_goto_start_timeline")
         layout.prop(scene, "myou_export_compress_scene")
         layout.prop(scene, "myou_export_convert_to_quats")
         layout.prop(scene, "myou_export_copy_files")
@@ -166,6 +167,8 @@ class DoExport(bpy.types.Operator):
         if bpy.data.is_saved and scene.myou_export_folder \
                 and not scene.myou_export_folder.startswith('//'):
             scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
+        if scene.myou_export_goto_start_timeline:
+            bpy.ops.screen.frame_jump(end=False)
         exporter.export_myou(os.path.join(bpy.path.abspath(scene.myou_export_folder), outname), scene)
         return {'FINISHED'}
 
@@ -247,14 +250,15 @@ def yes_no(msg, _yes_cb, _no_cb):
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    bpy.types.Scene.myou_export_goto_start_timeline = BoolProperty(name='Go to start of timeline', default=False)
     bpy.types.Scene.myou_export_compress_scene = BoolProperty(name='Compress scene files', default=True)
-    bpy.types.Scene.myou_export_convert_to_quats = BoolProperty(name='Convert all rotations to quaternions', default=True)
+    bpy.types.Scene.myou_export_convert_to_quats = BoolProperty(name='Convert all rotations to quaternions', default=False)
     bpy.types.Scene.myou_export_PNGJPEG = BoolProperty(name='PNG/JPEG', default=True)
-    bpy.types.Scene.myou_export_DXT = BoolProperty(name='S3TC', default=True)
-    bpy.types.Scene.myou_export_ETC1 = BoolProperty(name='ETC1', default=True)
-    bpy.types.Scene.myou_export_ETC2 = BoolProperty(name='ETC2', default=True)
-    bpy.types.Scene.myou_export_PVRTC = BoolProperty(name='PVRTC', default=True)
-    bpy.types.Scene.myou_export_ASTC = BoolProperty(name='ASTC', default=True)
+    bpy.types.Scene.myou_export_DXT = BoolProperty(name='S3TC', default=False)
+    bpy.types.Scene.myou_export_ETC1 = BoolProperty(name='ETC1', default=False)
+    bpy.types.Scene.myou_export_ETC2 = BoolProperty(name='ETC2', default=False)
+    bpy.types.Scene.myou_export_PVRTC = BoolProperty(name='PVRTC', default=False)
+    bpy.types.Scene.myou_export_ASTC = BoolProperty(name='ASTC', default=False)
 
     bpy.types.Scene.myou_export_tex_quality = EnumProperty(items=(
             ("FAST", "Fast export", "Encode textures as fast as possible"),
