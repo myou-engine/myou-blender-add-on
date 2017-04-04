@@ -161,6 +161,8 @@ class DoExport(bpy.types.Operator):
                 popup_message('Save the file or provide an export name')
                 return {'FINISHED'}
             outname = bpy.data.filepath.replace(os.sep,'/').rsplit('/',1)[1].rsplit('.',1)[0]
+        if bpy.data.is_saved and not scene.myou_export_folder:
+            scene.myou_export_folder = '//'
         if bpy.data.is_saved and scene.myou_export_folder \
                 and not scene.myou_export_folder.startswith('//'):
             scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
