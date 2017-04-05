@@ -333,8 +333,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
             d = loads(o.data['export_data'])
             materials = []
             passes = []
-            # material_indexes is only used to have retro compatibility.
-            for i in o.data.get('material_indices', o.data.get('material_indexes', [])):
+            for i in o.data.get('material_indices', []):
                 n = 'Material'
                 pass_ = 0
                 mat = o.material_slots[i:i+1]
