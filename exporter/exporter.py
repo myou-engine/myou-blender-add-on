@@ -742,9 +742,9 @@ def ob_to_json(ob, scn, check_cache, used_data):
     if parent and ob.parent.proxy:
         parent = ob.parent.proxy.name
 
-    strips = get_animation_data_strips(ob.animation_data)
+    strips = get_animation_data_strips(ob.animation_data)[0]
     if ob.type=='MESH' and ob.data and ob.data.shape_keys:
-        strips += get_animation_data_strips(ob.data.shape_keys.animation_data)
+        strips += get_animation_data_strips(ob.data.shape_keys.animation_data)[0]
 
     obj = {
         'scene': scn.name,
@@ -797,9 +797,11 @@ def ob_to_json(ob, scn, check_cache, used_data):
     return obj
 
 def get_animation_data_strips(animation_data): # TODO add prefix?
+    if not animation_data:
+        return [[],[]]
     strips = []
     any_solo = False
-    if animation_data and animation_data.nla_tracks:
+    if animation_data.nla_tracks:
         any_solo = any([track.is_solo for track in animation_data.nla_tracks])
         for track in animation_data.nla_tracks:
             if (any_solo and not track.is_solo) or track.mute:
@@ -824,7 +826,7 @@ def get_animation_data_strips(animation_data): # TODO add prefix?
                         'scale': strip.scale,
                         'repeat': strip.repeat,
                     })
-    action = animation_data and animation_data.action
+    action = animation_data.action
     if action and action.fcurves:
         strips.append({
             'type': 'CLIP',
@@ -841,7 +843,14 @@ def get_animation_data_strips(animation_data): # TODO add prefix?
             'scale': 1,
             'repeat': 1,
         })
-    return strips
+    drivers = []
+    last_path = ''
+    if animation_data.drivers:
+        for driver in animation_data.drivers:
+            if last_path != driver.data_path:
+                last_path = driver.data_path
+                drivers.append(driver.data_path)
+    return [strips, drivers]
 
 
 def action_to_json(action, ob):
@@ -865,9 +874,10 @@ def action_to_json(action, ob):
         path = fcurve.data_path.rsplit('.',1)
         chan = path[-1].replace('location', 'position')\
                        .replace('rotation_quaternion', 'rotation')
+        name = ''
+        chan_size = 1
         if len(path) == 1:
             type = 'object'
-            name = ''
         else:
             print(path)
             if path[0].startswith('pose.'):
@@ -886,12 +896,22 @@ def action_to_json(action, ob):
 
             elif path[0].startswith('key_blocks'):
                 type = 'shape'
+            elif ob.type in [
+                    'SURFACE', 'WIRE', 'VOLUME', 'HALO', # Material
+                    'SHADER']: # Material node tree
+                type = 'material'
+                chan = fcurve.data_path
+                chan_size = 0
+                for fcurve2 in action.fcurves:
+                    if fcurve2.data_path == chan:
+                        chan_size = max(fcurve2.array_index, chan_size)
+                chan_size += 1
             else:
                 print('Unknown fcurve path:', path[0], ob.type)
                 continue
         k = type, name, chan
         if not k in channels:
-            channels[k] = [[] for _ in range(CHANNEL_SIZES.get(chan, 1))]
+            channels[k] = [[] for _ in range(CHANNEL_SIZES.get(chan, chan_size))]
         idx = fcurve.array_index
         if chan == 'rotation':
             idx = (idx - 1) % 4

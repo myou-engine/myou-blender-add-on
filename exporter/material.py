@@ -1,5 +1,9 @@
 import bpy, gpu, os, base64, struct, zlib, re
 from json import loads, dumps
+from pprint import pprint
+
+# importing exporter here doesn't work in python<3.5 (blender 2.71)
+get_animation_data_strips = None
 
 SHADER_LIB = ""
 tex_sizes = {}
@@ -29,21 +33,27 @@ def get_dynamic_constants(mat, scn, paths):
     # Possible optimization: use a different sentinel per path
     # and call export_shader and update() only once
 
-    varnames = []
+    varnames_types = []
     for p in paths:
+        if p.startswith('nodes['):
+            p = 'node_tree.'+p
         try:
             orig_obj = mat.path_resolve(p)
         except ValueError:
-            varnames.append(None)
+            varnames_types.append([None, None, 0])
             continue
         obj, attr = ('.'+p).rsplit('.', 1)
         obj = eval('mat'+obj)
-        print(obj, attr)
+        #print(obj, attr)
+        value = orig_obj
         is_vector = hasattr(orig_obj, '__getitem__')
         if is_vector:
+            value = list(orig_obj)
             orig_val = orig_obj[0]
             orig_obj[0] = sentinel
+            vlen = len(orig_obj)
         else:
+            vlen = 1
             setattr(obj, attr, sentinel)
         scn.update()
         sh = gpu.export_shader(scn, mat)
@@ -55,15 +65,22 @@ def get_dynamic_constants(mat, scn, paths):
             setattr(obj, attr, orig_obj)
         pos = c.find("%f"%sentinel)
         if pos!=-1:
-            varnames.append(c[:pos].rsplit(' ',3)[1])
+            varname = c[:pos].rsplit(' ',3)[1]
+            varnames_types.append([varname, vlen, value])
         else:
-            varnames.append(None)
-    if any(varnames):
+            varnames_types.append([None, vlen, value])
+    if any(varnames_types):
         scn.update()
-    return varnames
+    pprint(varnames_types)
+    return varnames_types
 
 def mat_to_json(mat, scn):
     global SHADER_LIB
+    global get_animation_data_strips
+    if not get_animation_data_strips:
+        from . import exporter
+        get_animation_data_strips = exporter.get_animation_data_strips
+
     shader = gpu.export_shader(scn, mat)
     parts = shader['fragment'].rsplit('}',2)
     if not SHADER_LIB:
@@ -140,27 +157,47 @@ def mat_to_json(mat, scn):
     #pprint(shader['attributes'])
     # ---------------------------
 
-    dyn_consts = loads(mat.get('dyn_consts') or '[]')
-    replacements = loads(mat.get('replacements') or '[]')
-
     # # Checking hash of main() is not enough
     # code_hash = hash(shader['fragment']) % 2147483648
     #print(shader['fragment'].split('{')[0])
     premain, main = shader['fragment'].split('{')
 
+    print(mat.name)
+    strips, drivers = get_animation_data_strips(mat.animation_data)
+    if mat.node_tree and mat.node_tree.nodes:
+        s,d = get_animation_data_strips(mat.node_tree.animation_data)
+        strips += s
+        drivers += d
+
     if 1:
         # Dynamic uniforms (for animation, per object variables,
         #                   particle layers or other custom stuff)
         dyn_consts = []
+        # Old custom_uniforms API
         block = bpy.data.texts.get('custom_uniforms')
         if block:
             paths = [x for x in block.as_string().split('\n')
                      if x]
-            print(paths)
-            dyn_consts = get_dynamic_constants(mat, scn, paths)
+            #print(paths)
         else:
-            print('no block')
-        mat['dyn_consts'] = dumps(dyn_consts)
+            paths = []
+        # Animated custom_uniforms
+        for strip in strips:
+            from pprint import pprint
+            last_path = ''
+            for f in bpy.data.actions[strip['action']].fcurves:
+                if f.data_path != last_path:
+                    last_path = f.data_path
+                    paths.append(last_path)
+        paths += drivers # drivers is a list of data_paths for now
+        dyn_consts = []
+        dyn_ecounts = []
+        dyn_values = []
+        for a,b,c in get_dynamic_constants(mat, scn, paths):
+            dyn_consts.append(a)
+            dyn_ecounts.append(b)
+            dyn_values.append(c)
+
         # Get list of unknown varyings and save them
         # as replacement strings
         known = ['var'+a['varname'][3:] for a in shader['attributes'] if a['varname']]
@@ -174,10 +211,10 @@ def mat_to_json(mat, scn):
             if v[2] not in known:
                 replacements.append((' '.join(v),
                     'const {t} {n} = {t}(0.0)'.format(t=v[1], n=v[2])))
-        mat['replacements'] = dumps(replacements)
 
     if any(dyn_consts):
         # Separate constants from the rest
+        print(mat.name,'===>',premain)
         lines = premain.split('\n')
         # This generates a dictionary with the var name
         # and comma-separated values in a string, like this:
@@ -197,15 +234,19 @@ def mat_to_json(mat, scn):
             #print(k, dyn_consts, k in dyn_consts)
             if k in dyn_consts:
                 lines.append('uniform {0} {1};'.format(t, k))
-                types[dyn_consts.index(k)] = t
+                # GL type may differ from value
+                dyn_ecounts[dyn_consts.index(k)] = v.count(',')+1
             else:
                 lines.append('const {0} {1} = {0}({2});'.format(t, k, v))
 
         shader['fragment'] = '\n'.join(lines) + '\n' + premain + '{' + main
 
         shader['uniforms'] += [
-            {'type': -1, 'varname': c, 'gltype': types[i], 'index': i}
-            for i,c in enumerate(dyn_consts)]
+            # TODO: index is never used as it's always in order,
+            # remove it after ensuring in legacy engine
+            {'type': -1, 'varname': c or '', 'count': dyn_ecounts[i],
+             'index': i, 'path': paths[i], 'value': dyn_values[i]}
+        for i,c in enumerate(dyn_consts)]
 
     # mat['code_hash'] = code_hash
 
@@ -329,6 +370,9 @@ def mat_to_json(mat, scn):
         for m in param_mats.values()
     ]
 
+    shader['animation_strips'] = strips
+
+    shader['fragment_hash'] = hash(shader['fragment'])
     ret = loads(dumps(shader))
     # mat['hash'] = hash(ret) % 2147483648
     return ret
