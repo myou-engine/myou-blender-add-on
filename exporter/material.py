@@ -279,7 +279,7 @@ def mat_to_json_try(mat, scn):
     if mat.game_settings.alpha_blend == 'CLIP':
         shader['fragment'] = re.sub(
             r'gl_FragColor = ([^;]*)',
-            r'if(\1.a < 0.7)discard; gl_FragColor = \1',
+            r'if(\1.a < 0.5)discard; gl_FragColor = \1',
             shader['fragment'])
 
     # Find number of required shape attributes (excluding basis)
