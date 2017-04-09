@@ -84,7 +84,7 @@ def search_scene_used_data(scene):
                     use_normal_maps = use_normal_maps or use_normal_map
             add_animation_data(m.animation_data, m, i+1)
             if m.use_nodes and m.node_tree:
-                use_normal_maps = use_normal_maps or search_in_node_tree(m.node_tree, i-1)
+                use_normal_maps = search_in_node_tree(m.node_tree, layers, i-1) or use_normal_maps
                 add_animation_data(m.node_tree.animation_data, m.node_tree, i+1)
             used_data['material_use_tangent'][m.name] = use_normal_maps
         return use_normal_maps
@@ -94,9 +94,9 @@ def search_scene_used_data(scene):
         use_normal_map = False
         for n in tree.nodes:
             if (n.bl_idname == 'ShaderNodeMaterial' or n.bl_idname == 'ShaderNodeExtendedMaterial') and n.material:
-                use_normal_map = use_normal_map or add_material(n.material,i+1)
+                use_normal_map = add_material(n.material, layers, i+1) or use_normal_map
             elif n.bl_idname == 'ShaderNodeTexture' and n.texture:
-                use_normal_map = use_normal_map or getattr(s.texture, 'use_normal_map', False)
+                use_normal_map = use_normal_map or getattr(n.texture, 'use_normal_map', False)
                 add_texture(n.texture,i+1)
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
