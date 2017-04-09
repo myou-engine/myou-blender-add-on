@@ -71,10 +71,33 @@ def get_dynamic_constants(mat, scn, paths):
             varnames_types.append([None, vlen, value])
     if any(varnames_types):
         scn.update()
-    pprint(varnames_types)
+    #pprint(varnames_types)
     return varnames_types
 
-def mat_to_json(mat, scn):
+def mat_to_json(mat, scn, layers):
+    # We'll disable "this layer only" lights,
+    # and restore them all unconditionally
+    lamps = []
+    try:
+        # TODO: optimize making a list of lamps per layer?
+        # TODO: update scene only when necessary?
+        # export materials ordered by update requirements?
+        for ob in scn.objects:
+            if ob.type == 'LAMP':
+                lamp = ob.data
+                if lamp.use_own_layer and \
+                        not any(a and b for a,b in zip(ob.layers, layers)):
+                    lamps.append([lamp, lamp.use_diffuse, lamp.use_specular])
+                    lamp.use_diffuse = lamp.use_specular = False
+        scn.update()
+        r = mat_to_json_try(mat, scn)
+    finally:
+        for lamp, use_diffuse, use_specular in lamps:
+            lamp.use_diffuse = use_diffuse
+            lamp.use_specular = use_specular
+    return r
+
+def mat_to_json_try(mat, scn):
     global SHADER_LIB
     global get_animation_data_strips
     if not get_animation_data_strips:
@@ -183,7 +206,6 @@ def mat_to_json(mat, scn):
             paths = []
         # Animated custom_uniforms
         for strip in strips:
-            from pprint import pprint
             last_path = ''
             for f in bpy.data.actions[strip['action']].fcurves:
                 if f.data_path != last_path:
@@ -215,7 +237,7 @@ def mat_to_json(mat, scn):
 
     if any(dyn_consts):
         # Separate constants from the rest
-        print(mat.name,'===>',premain)
+        #print(mat.name,'===>',premain)
         lines = premain.split('\n')
         # This generates a dictionary with the var name
         # and comma-separated values in a string, like this:
@@ -275,7 +297,7 @@ def mat_to_json(mat, scn):
                 if ob.particle_systems:
                     num_partsegments = 1  # TODO check correct p systems and segments
                 if ob.parent and ob.parent.type == 'ARMATURE' and ob.parent_type != 'BONE' and not ob.get('apply_armature'):
-                    print("Material", mat.name, "has armature", ob.parent.name, "because of mesh", ob.name)
+                    #print("Material", mat.name, "has armature", ob.parent.name, "because of mesh", ob.name)
                     num_bones = max(num_bones, len([b for b in ob.parent.data.bones if b.use_deform]))
                     if ob.get('weights6'): weights6 = True
     if num_shapes:

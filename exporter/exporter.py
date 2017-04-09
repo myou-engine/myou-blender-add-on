@@ -32,6 +32,9 @@ def search_scene_used_data(scene):
         'objects': [],
         'materials': [],
         'material_use_tangent': {},
+        # materials don't have layers, but we'll assume their presence in layers
+        # to determine which "this layer only" lights to remove
+        'material_layers': {},
         'textures': [],
         'images': [],
         'image_users': defaultdict(list),
@@ -58,7 +61,7 @@ def search_scene_used_data(scene):
 
                 for s in ob.material_slots:
                     if hasattr(s,'material') and s.material:
-                        add_material(s.material, i+1)
+                        add_material(s.material, ob.layers, i+1)
 
                 add_animation_data(ob.animation_data, ob, i+1)
                 if ob.type=='MESH' and ob.data and ob.data.shape_keys:
@@ -72,10 +75,11 @@ def search_scene_used_data(scene):
             print('    '*i+'Act:', action.name)
             used_data['actions'].append(action)
 
-    def add_material(m,i=0):
-        use_normal_maps = False
-        if not m in used_data['materials']:
+    def add_material(m, layers, i=0):
+        if not m.name in used_data['material_layers']:
+            use_normal_maps = False
             used_data['materials'].append(m)
+            used_data['material_layers'][m.name] = list(layers)
             print('    '*i+'Mat:', m.name)
             for s,enabled in zip(m.texture_slots, m.use_textures):
                 if enabled and hasattr(s, 'texture') and s.texture:
@@ -86,11 +90,14 @@ def search_scene_used_data(scene):
             if m.use_nodes and m.node_tree:
                 use_normal_maps = search_in_node_tree(m.node_tree, layers, i-1) or use_normal_maps
                 add_animation_data(m.node_tree.animation_data, m.node_tree, i+1)
-            used_data['material_use_tangent'][m.name] = use_normal_maps
-        return use_normal_maps
+            used_data['material_use_tangent'][m.name] = used_data['material_use_tangent'].get(m.name, False) or use_normal_maps
+        mlayers = used_data['material_layers'][m.name]
+        for i,l in enumerate(layers):
+            mlayers[i] = l or mlayers[i]
+        return used_data['material_use_tangent'].get(m.name, False)
 
     # NOTE: It assumes that there is no cyclic dependencies in node groups.
-    def search_in_node_tree(tree,i=0):
+    def search_in_node_tree(tree, layers, i=0):
         use_normal_map = False
         for n in tree.nodes:
             if (n.bl_idname == 'ShaderNodeMaterial' or n.bl_idname == 'ShaderNodeExtendedMaterial') and n.material:
@@ -100,7 +107,7 @@ def search_scene_used_data(scene):
                 add_texture(n.texture,i+1)
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
-                    search_in_node_tree(n.node_tree,i+1)
+                    search_in_node_tree(n.node_tree, layers, i+1)
         return use_normal_map
 
     def add_texture(t,i=0, is_normal=False):
@@ -1012,8 +1019,10 @@ def whole_scene_to_json(scn, used_data, textures_path):
                 })
     # Export shader lib, textures (images), materials, actions
     image_json = image.export_images(textures_path, used_data, add_progress)
-    mat_json = [mat_to_json(mat, scn) for mat in used_data['materials']]
-    act_json = [action_to_json(action, used_data['action_users'][action.name]) for action in used_data['actions']]
+    mat_json = [mat_to_json(mat, scn, used_data['material_layers'][mat.name])
+                    for mat in used_data['materials']]
+    act_json = [action_to_json(action, used_data['action_users'][action.name])
+                    for action in used_data['actions']]
     # We must export shader lib after materials, but engine has to read it before
     ret.append({"type":"SHADER_LIB","code": get_shader_lib()})
     ret += image_json + mat_json + act_json
