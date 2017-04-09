@@ -807,7 +807,7 @@ def get_animation_data_strips(animation_data): # TODO add prefix?
                 # solo shot first
                 continue
             for strip in track.strips:
-                if strip.type == 'CLIP' and not strip.mute:
+                if strip.type == 'CLIP' and not strip.mute and strip.action:
                     # Strips are added in the correct order of evaluation
                     # (tracks are from bottom to top)
                     strips.append({
@@ -824,6 +824,7 @@ def get_animation_data_strips(animation_data): # TODO add prefix?
                         'action_frame_end': strip.action_frame_end,
                         'scale': strip.scale,
                         'repeat': strip.repeat,
+                        'name': strip.name or strip.action.name,
                     })
     action = animation_data.action
     if action and action.fcurves:
@@ -878,7 +879,6 @@ def action_to_json(action, ob):
         if len(path) == 1:
             type = 'object'
         else:
-            print(path)
             if path[0].startswith('pose.'):
                 type, name, _ = path[0].split('"')
                 type = 'pose'
