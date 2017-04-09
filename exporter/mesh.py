@@ -133,18 +133,21 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
         for m in ob.modifiers:
             if m.type == 'ARMATURE' and has_armature_deform:
                 m.show_viewport = False
-        ob.data = ob.to_mesh(scn, True, 'PREVIEW')
-        # This applies modifiers (it fails sometimes with booleans)
 
-        #alternative modifiers Applying:
-        # ob.data = ob.data.copy()
-        # bpy.context.scene.update()
-        # for m in ob.modifiers:
-        #     if not (m.type == 'ARMATURE' and has_armature_deform):
-        #         t=perf_t(t,False)
-        #         print('Applying modifier ('+str(m.type)+'): ' + m.name)
-        #         bpy.ops.object.modifier_apply(modifier=m.name)
-        #         t=perf_t(t)
+        # Apply auto-smooth as a modifier
+        auto_smooth_mod = None
+        if ob.data.use_auto_smooth:
+            auto_smooth_mod = ob.modifiers.new('auto-smooth', 'EDGE_SPLIT')
+            auto_smooth_mod.use_edge_sharp = False
+            auto_smooth_mod.split_angle = ob.data.auto_smooth_angle
+
+        # This applies modifiers (it fails sometimes with booleans)
+        ob.data = ob.to_mesh(scn, True, 'PREVIEW')
+
+        # Remove auto_smooth_mod
+        if auto_smooth_mod:
+            bpy.ops.object.modifier_remove(modifier=auto_smooth_mod.name)
+
         ob.modifiers.foreach_set('show_viewport', mods)
         if ob.get('smooth'):
             bpy.ops.object.shade_smooth()
