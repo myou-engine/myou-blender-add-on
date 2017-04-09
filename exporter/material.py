@@ -188,7 +188,8 @@ def mat_to_json(mat, scn):
             for f in bpy.data.actions[strip['action']].fcurves:
                 if f.data_path != last_path:
                     last_path = f.data_path
-                    paths.append(last_path)
+                    if last_path not in paths:
+                        paths.append(last_path)
         paths += drivers # drivers is a list of data_paths for now
         dyn_consts = []
         dyn_ecounts = []
