@@ -704,6 +704,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
             data = {'pose': pose}
     else:
         obtype = 'EMPTY'
+        data = {'mesh_radius': ob.empty_draw_size}
 
     if 'particles' in ob:
         data['particles'] = []
