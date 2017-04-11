@@ -3,6 +3,7 @@ from .mesh import *
 from .material import *
 from .phy_mesh import *
 from . import image
+from .color import *
 
 from json import dumps, loads
 from collections import defaultdict
@@ -171,7 +172,6 @@ def search_scene_used_data(scene):
 
     return used_data
 
-
 def scene_data_to_json(scn=None):
     scn = scn or bpy.context.scene
     world = scn.world or bpy.data.scenes['Scene'].world
@@ -180,8 +180,8 @@ def scene_data_to_json(scn=None):
         'type':'SCENE',
         'name': scn.name,
         'gravity' : [0,0,-scn.game_settings.physics_gravity], #list(scn.gravity),
-        'background_color' : list(world.horizon_color),
-        'ambient_color': list(world.ambient_color),
+        'background_color' : linearrgb_to_srgb([0,0,0], world.horizon_color),
+        'ambient_color': linearrgb_to_srgb([0,0,0], world.ambient_color),
         'debug_physics': scn.game_settings.show_physics_visualization,
         'active_camera': scn.camera.name if scn.camera else 'Camera',
         'stereo': scn.game_settings.stereo == 'STEREO',
