@@ -125,7 +125,11 @@ class SelectExportPath(bpy.types.Operator):
                 stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
         if path:
             if bpy.data.is_saved:
-                path = bpy.path.relpath(path)
+                try:
+                    path = bpy.path.relpath(path)
+                except:
+                    # Windows doesn't support relative paths for different drives
+                    pass
             bpy.context.scene.myou_export_folder = path
         return {'FINISHED'}
 
@@ -168,7 +172,11 @@ class DoExport(bpy.types.Operator):
             scene.myou_export_folder = '//'
         if bpy.data.is_saved and scene.myou_export_folder \
                 and not scene.myou_export_folder.startswith('//'):
-            scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
+            try:
+                scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
+            except:
+                # Windows doesn't support relative paths for different drives
+                pass
         if scene.myou_export_goto_start_timeline:
             bpy.ops.screen.frame_jump(end=False)
         def f(x):
