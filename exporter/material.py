@@ -1,6 +1,7 @@
 import bpy, gpu, os, base64, struct, zlib, re
 from json import loads, dumps
 from pprint import pprint
+from random import random
 
 # importing exporter here doesn't work in python<3.5 (blender 2.71)
 get_animation_data_strips = None
@@ -15,38 +16,35 @@ def reset_shader_lib():
     global SHADER_LIB
     SHADER_LIB = ""
 
-def get_dynamic_constants(mat, scn, paths):
+def get_dynamic_constants(mat, scn, paths, code):
     # Example:
     #paths = [
         #'node_tree.nodes["slicep"].outputs[0].default_value',
         #'node_tree.nodes["slicen"].outputs[0].default_value',
     #]
-
-    shader = gpu.export_shader(scn, mat)
-    code = shader['fragment'].rsplit('}', 2)[1]
-    sentinel = 0.406198 # random()
-    while ("%f"%sentinel) in code:
-        sentinel = random.random()
-    # We're assuming "%f"%sentinel yelds exactly the same string
-    # as the code generator (sprintf is used in both cases)
-
-    # Possible optimization: use a different sentinel per path
-    # and call export_shader and update() only once
-
+    restore = []
+    sentinels = []
+    lookup_data = []
     varnames_types = []
     for p in paths:
+        # We're assuming "%f"%sentinel yelds exactly the same string
+        # as the code generator (sprintf is used in both cases)
+        sentinel = random()
+        while ("%f"%sentinel) in code or sentinel in sentinels:
+            sentinel = random()
         if p.startswith('nodes['):
             p = 'node_tree.'+p
         try:
             orig_obj = mat.path_resolve(p)
         except ValueError:
-            varnames_types.append([None, None, 0])
+            lookup_data.append([0,0,0])
             continue
         obj, attr = ('.'+p).rsplit('.', 1)
         obj = eval('mat'+obj)
         #print(obj, attr)
         value = orig_obj
         is_vector = hasattr(orig_obj, '__getitem__')
+        orig_val = None
         if is_vector:
             value = list(orig_obj)
             orig_val = orig_obj[0]
@@ -55,24 +53,36 @@ def get_dynamic_constants(mat, scn, paths):
         else:
             vlen = 1
             setattr(obj, attr, sentinel)
-        scn.update()
-        sh = gpu.export_shader(scn, mat)
-        c = sh['fragment'].rsplit('}', 2)[1]
-        # restore original
-        if is_vector:
-            orig_obj[0] = orig_val
-        else:
-            setattr(obj, attr, orig_obj)
+        lookup_data.append([sentinel, vlen, value])
+        restore.append([is_vector,obj,attr,orig_obj,orig_val])
+
+    scn.update()
+    sh = gpu.export_shader(scn, mat)
+    c = sh['fragment'].rsplit('}', 2)[1]
+
+    for sentinel, vlen, value in lookup_data:
+        if not sentinel:
+            varnames_types.append([None, None, 0])
+            continue
         pos = c.find("%f"%sentinel)
         if pos!=-1:
             varname = c[:pos].rsplit(' ',3)[1]
             varnames_types.append([varname, vlen, value])
         else:
             varnames_types.append([None, vlen, value])
+
+    for is_vector,obj,attr,orig_obj,orig_val in restore:
+        # restore original
+        if is_vector:
+            orig_obj[0] = orig_val
+        else:
+            setattr(obj, attr, orig_obj)
+
+
     if any(varnames_types):
         scn.update()
     #pprint(varnames_types)
-    return varnames_types
+    return [varnames_types, sh]
 
 def mat_to_json(mat, scn, layers):
     # We'll disable "this layer only" lights,
@@ -104,6 +114,7 @@ def mat_to_json_try(mat, scn):
         from . import exporter
         get_animation_data_strips = exporter.get_animation_data_strips
 
+    # NOTE: This export is replaced later
     shader = gpu.export_shader(scn, mat)
     parts = shader['fragment'].rsplit('}',2)
     if not SHADER_LIB:
@@ -148,7 +159,7 @@ def mat_to_json_try(mat, scn):
         .replace('''/* These are needed for high quality bump mapping */
 #version 130
 #extension GL_ARB_texture_query_lod: enable
-#define BUMP_BICUBIC''','').replace('\r','')
+#define BUMP_BICUBIC''','').replace('\r','')+'\n'
         splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
         if len(splits) == 3:
             a,b,c = splits
@@ -162,9 +173,7 @@ def mat_to_json_try(mat, scn):
         except:
             pass
 
-    shader['fragment'] = ('\n'+parts[1]+'}').replace('sampler2DShadow','sampler2D')\
-        .replace('\nin ', '\nvarying ')
-    shader['fragment'] = re.sub(r'[^\x00-\x7f]',r'', shader['fragment'])
+    shader['fragment'] = ('\n'+parts[1]+'}')
 
     # Stuff for debugging shaders
     # TODO write only when they have changed
@@ -183,7 +192,6 @@ def mat_to_json_try(mat, scn):
     # # Checking hash of main() is not enough
     # code_hash = hash(shader['fragment']) % 2147483648
     #print(shader['fragment'].split('{')[0])
-    premain, main = shader['fragment'].split('{')
 
     print(mat.name)
     strips, drivers = get_animation_data_strips(mat.animation_data)
@@ -205,9 +213,13 @@ def mat_to_json_try(mat, scn):
         else:
             paths = []
         # Animated custom_uniforms
+        to_unmute = []
         for strip in strips:
             last_path = ''
             for f in bpy.data.actions[strip['action']].fcurves:
+                if not f.mute:
+                    f.mute = True
+                    to_unmute.append(f)
                 if f.data_path != last_path:
                     last_path = f.data_path
                     if last_path not in paths:
@@ -216,10 +228,19 @@ def mat_to_json_try(mat, scn):
         dyn_consts = []
         dyn_ecounts = []
         dyn_values = []
-        for a,b,c in get_dynamic_constants(mat, scn, paths):
+        # NOTE: This _replaces_ the previously exported shader
+        dyn_stuff, shader = get_dynamic_constants(mat, scn, paths, shader['fragment'])
+        for a,b,c in dyn_stuff:
             dyn_consts.append(a)
             dyn_ecounts.append(b)
             dyn_values.append(c)
+        # We're repeating what we did at the beginning
+        shader['fragment'] = ('\n'+shader['fragment'].rsplit('}',2)[1]+'}')
+        premain, main = shader['fragment'].split('{')
+
+        # Restore previously muted fcurves
+        for f in to_unmute:
+            f.mute = False
 
         # Get list of unknown varyings and save them
         # as replacement strings
@@ -234,6 +255,10 @@ def mat_to_json_try(mat, scn):
             if v[2] not in known:
                 replacements.append((' '.join(v),
                     'const {t} {n} = {t}(0.0)'.format(t=v[1], n=v[2])))
+
+    shader['fragment'] = shader['fragment'].replace('sampler2DShadow','sampler2D')\
+        .replace('\nin ', '\nvarying ')
+    shader['fragment'] = re.sub(r'[^\x00-\x7f]',r'', shader['fragment'])
 
     if any(dyn_consts):
         # Separate constants from the rest
