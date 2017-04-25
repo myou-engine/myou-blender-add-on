@@ -132,13 +132,6 @@ def mat_to_json_try(mat, scn):
             a,b,c = splits
             SHADER_LIB = a+'BIT_OPERATIONS\n#endif'+c
         #open('/tmp/shader_lib','w').write(SHADER_LIB)
-        try:
-            import shader_lib_filter, imp
-            imp.reload(shader_lib_filter)
-            print('Applying shader_lib_filter.py')
-            SHADER_LIB = shader_lib_filter.shader_lib_filter(SHADER_LIB)
-        except:
-            pass
 
     shader['fragment'] = ('\n'+parts[1]+'}')
 
