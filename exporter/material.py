@@ -2,6 +2,7 @@ import bpy, gpu, os, base64, struct, zlib, re
 from json import loads, dumps
 from pprint import pprint
 from random import random
+from .shader_lib_replaces import *
 
 # importing exporter here doesn't work in python<3.5 (blender 2.71)
 get_animation_data_strips = None
@@ -117,49 +118,15 @@ def mat_to_json_try(mat, scn):
     # NOTE: This export is replaced later
     shader = gpu.export_shader(scn, mat)
     parts = shader['fragment'].rsplit('}',2)
+    #SHADER_LIB = '' # Uncomment this to debug conversion every time
     if not SHADER_LIB:
+        print('Converting shader lib')
         SHADER_LIB = "#extension GL_OES_standard_derivatives : enable\n"\
         +"#ifdef GL_ES\n"\
         +"precision highp float;\n"\
         +"precision highp int;\n"\
-        +"#endif\n"+(parts[0]+'}')\
-        .replace('gl_ModelViewMatrixInverse','mat4(1)')\
-        .replace('gl_ModelViewMatrix','mat4(1)')\
-        .replace('gl_ProjectionMatrixInverse','mat4(1)')\
-        .replace('gl_ProjectionMatrix[3][3]','0.0')\
-        .replace('gl_ProjectionMatrix','mat4(1)')\
-        .replace('gl_NormalMatrixInverse','mat3(1)')\
-        .replace('gl_NormalMatrix','mat3(1)')\
-        .replace('sampler2DShadow','sampler2D')\
-        .replace('shadow2DProj(shadowmap, co).x',
-                'step(co.z,texture2D(shadowmap, co.xy).x)')\
-        .replace('gl_LightSource[i].position','vec3(0,0,0)')\
-        .replace('gl_LightSource[i].diffuse','vec3(0,0,0)')\
-        .replace('gl_LightSource[i].specular','vec3(0,0,0)')\
-        .replace('gl_LightSource[i].halfVector','vec3(0,0,0)')\
-        .replace('float rad[4], fac;', 'float rad[4];float fac;')\
-        .replace('(normalize(vec).z + 1)', '(normalize(vec).z + 1.0)') \
-        .replace('strength * v1 + (1 - strength) * v2', 'strength * v1 + (1.0 - strength) * v2') \
-        .replace('int(x) - ((x < 0) ? 1 : 0)', 'int(x) - ((x < 0.0) ? 1 : 0)') \
-        .replace('return x - i;', 'return x - float(i);') \
-        .replace('(M_PI * 2)', '(M_PI * 2.0)') \
-        .replace('((mod(xi, 2) == mod(yi, 2)) == bool(mod(zi, 2)))', 'true') \
-        .replace('if (depth > 0) {', 'if (depth > 0.0) {') \
-        .replace('if (depth > 1) {', 'if (depth > 1.0) {') \
-        .replace('if (depth > 2) {', 'if (depth > 2.0) {') \
-        .replace('if (depth > 3) {', 'if (depth > 3.0) {') \
-        .replace('if (depth > 4) {', 'if (depth > 4.0) {') \
-        .replace('if (depth > 5) {', 'if (depth > 5.0) {') \
-        .replace('if (depth > 6) {', 'if (depth > 6.0) {') \
-        .replace('if (depth > 7) {', 'if (depth > 7.0) {') \
-        .replace('if (depth > 8) {', 'if (depth > 8.0) {') \
-        .replace('if (depth > 9) {', 'if (depth > 9.0) {') \
-        .replace('fac = 1;', 'fac = 1.0;') \
-        .replace('outv = -v;','outv = vec3(0.0)-v;') \
-        .replace('''/* These are needed for high quality bump mapping */
-#version 130
-#extension GL_ARB_texture_query_lod: enable
-#define BUMP_BICUBIC''','').replace('\r','')+'\n'
+        +"#endif\n"+(parts[0]+'}').replace('\r','')+'\n'
+        SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
         splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
         if len(splits) == 3:
             a,b,c = splits
@@ -403,7 +370,6 @@ def mat_to_json_try(mat, scn):
     shader['type'] = 'MATERIAL'
     shader['name'] = mat.name
     shader['scene'] = scn.name
-    
     shader['params'] = [
         {
             'name': m.name,

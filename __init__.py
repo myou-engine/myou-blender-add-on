@@ -80,10 +80,10 @@ def register():
 
 
 def reload_modules():
-    from .exporter import mesh, phy_mesh, image, material, color
+    from .exporter import mesh, phy_mesh, image, material, color, shader_lib_replaces
     from . import export_panel, winutils
     # For reloading changes in all modules when developing
-    for m in [mesh, phy_mesh, image, material, color, exporter, winutils, export_panel] + \
+    for m in [mesh, phy_mesh, image, shader_lib_replaces, material, color, exporter, winutils, export_panel] + \
             auto_register_modules:
         imp.reload(m)
 
