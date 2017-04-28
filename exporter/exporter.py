@@ -902,6 +902,7 @@ def action_to_json(action, ob):
                     continue
 
             elif path[0].startswith('key_blocks'):
+                type, name, _ = path[0].split('"')
                 type = 'shape'
             elif ob.type in [
                     'SURFACE', 'WIRE', 'VOLUME', 'HALO', # Material
