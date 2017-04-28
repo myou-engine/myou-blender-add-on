@@ -78,6 +78,8 @@ class LayoutDemoPanel(bpy.types.Panel):
         # col.operator("", text='Open tool folder')
 
         layout.label(text="Export using above options:")
+        if getattr(bpy, 'has_reloaded_myou', False):
+            layout.operator("scene.myou_dev_reload")
         row = layout.row()
         row.scale_y = 3.0
         row.operator("myou.export", text='Export')

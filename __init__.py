@@ -29,6 +29,7 @@ class ReloadMyouPlugin(bpy.types.Operator):
     bl_label = "Reload Myou plugin"
 
     def execute(self, context):
+        bpy.has_reloaded_myou = True
         unregister()
         reload_modules()
         module_name = os.path.realpath(__file__).rsplit(os.sep,2)[1]
