@@ -8,6 +8,7 @@ from .shader_lib_replaces import *
 get_animation_data_strips = None
 
 SHADER_LIB = ""
+debug_lib = False
 tex_sizes = {}
 
 def get_shader_lib():
@@ -117,21 +118,25 @@ def mat_to_json_try(mat, scn):
 
     # NOTE: This export is replaced later
     shader = gpu.export_shader(scn, mat)
+    lines = shader['fragment'].replace('\r','').split('\n')
     parts = shader['fragment'].rsplit('}',2)
-    #SHADER_LIB = '' # Uncomment this to debug conversion every time
-    if not SHADER_LIB:
+    if not SHADER_LIB or debug_lib:
         print('Converting shader lib')
         SHADER_LIB = "#extension GL_OES_standard_derivatives : enable\n"\
         +"#ifdef GL_ES\n"\
         +"precision highp float;\n"\
         +"precision highp int;\n"\
-        +"#endif\n"+(parts[0]+'}').replace('\r','')+'\n'
+        +"#endif\n"\
+        +"#define CORRECTION_NONE\n"\
+        +(parts[0]+'}').replace('\r','')+'\n'
         SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
         splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
         if len(splits) == 3:
             a,b,c = splits
             SHADER_LIB = a+'BIT_OPERATIONS\n#endif'+c
-        #open('/tmp/shader_lib','w').write(SHADER_LIB)
+        if debug_lib:
+            open('/tmp/shader_lib.orig.glsl','w').write((parts[0]+'}').replace('\r','')+'\n')
+            open('/tmp/shader_lib.glsl','w').write(SHADER_LIB)
 
     shader['fragment'] = ('\n'+parts[1]+'}')
 
