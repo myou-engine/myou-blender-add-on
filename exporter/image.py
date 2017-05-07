@@ -102,7 +102,7 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
             input_path = tmp_filepath = tempfile.mktemp('.png')
             save_image(image, tmp_filepath, 'PNG')
         uses_alpha = image not in non_alpha_images
-        is_sRGB = not used_data['image_is_normal_map'][image.name]
+        is_sRGB = not used_data['image_is_normal_map'].get(image.name, False)
         if is_sRGB:
             print('Image',image.name,'is sRGB')
         else:

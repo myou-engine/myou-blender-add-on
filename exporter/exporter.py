@@ -44,7 +44,7 @@ def search_scene_used_data(scene):
         'actions': [],
         'action_users': {}, # only one user (ob or material) of each, to get the channels
         'sounds': {},
-        }
+    }
 
     #recursive search methods for each data type:
     def add_ob(ob, i=0):
@@ -82,7 +82,7 @@ def search_scene_used_data(scene):
             used_data['materials'].append(m)
             used_data['material_layers'][m.name] = list(layers)
             print('    '*i+'Mat:', m.name)
-            for s,enabled in zip(m.texture_slots, m.use_textures):
+            for s,enabled in zip(m.texture_slots, m.use_textures): # internal/game only
                 if enabled and hasattr(s, 'texture') and s.texture:
                     use_normal_map = getattr(s.texture, 'use_normal_map', False)
                     add_texture(s.texture,i+1, use_normal_map)
@@ -106,12 +106,17 @@ def search_scene_used_data(scene):
             elif n.bl_idname == 'ShaderNodeTexture' and n.texture:
                 use_normal_map = use_normal_map or getattr(n.texture, 'use_normal_map', False)
                 add_texture(n.texture,i+1)
+            elif n.bl_idname == 'ShaderNodeTexImage':
+                add_image(n.image,i+1)
+                if n.color_space == 'NONE' and \
+                    any([link.to_node.type == 'NORMAL_MAP' for link in n.outputs[0].links]):
+                        used_data['image_is_normal_map'][n.image.name] = True
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
                     search_in_node_tree(n.node_tree, layers, i+1)
         return use_normal_map
 
-    def add_texture(t,i=0, is_normal=False):
+    def add_texture(t,i=0, is_normal=False): # internal/game only
         if not t in used_data['textures']:
             print('    '*i+'Tex:', t.name)
             used_data['textures'].append(t)
@@ -600,16 +605,34 @@ def ob_to_json(ob, scn, check_cache, used_data):
             'cam_type': ob.data.type          # PERSP ORTHO
         }
     elif obtype=='LAMP':
+        size_x = size_y = ob.data.shadow_soft_size
+        if ob.data.type == 'AREA':
+            size_x = ob.data.size
+            size_y = ob.data.size_y
+        if scn.render.engine != 'CYCLES':
+            color = list(ob.data.color*ob.data.energy)
+            energy = 1 # we never modified this in the end
+        elif ob.data.node_tree and 'Emission' in ob.data.node_tree.nodes:
+            # We'll use lamp nodes in the future
+            # for now we'll just assume one emission node
+            node = ob.data.node_tree.nodes['Emission']
+            color = list(node.inputs['Color'].default_value)[:3]
+            energy = node.inputs['Strength'].default_value * 0.01
+        else:
+            color = list(ob.data.color)
+            energy = 1
         data = {
             'lamp_type': ob.data.type,
-            'color': list(ob.data.color*ob.data.energy),
-            'energy': 1, # TODO: move energy here for when all assets no longer use the old way
+            'color': color,
+            'energy': energy,
             'falloff_distance': ob.data.distance,
             'shadow': getattr(ob.data, 'use_shadow', False),
             'tex_size': getattr(ob.data, 'shadow_buffer_size', 512),
             'frustum_size': getattr(ob.data, 'shadow_frustum_size', 0),
             'clip_start': getattr(ob.data, 'shadow_buffer_clip_start', 0),
             'clip_end': getattr(ob.data, 'shadow_buffer_clip_end', 0),
+            'size_x': size_x,
+            'size_y': size_y,
         }
     elif obtype=='ARMATURE':
         bones = []
@@ -680,6 +703,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
         bones = [bone_dict[name] for name in final_order]
         ob.data['ordered_deform_names'] = ordered_deform_names
         data = {'bones': bones, 'unfc': num_deform * 4}
+        print("Deform bones:",num_deform,"uniforms",num_deform*4)
         changed = False
         str_data = str(data)
         if ob.data.get('str_data') != str_data:

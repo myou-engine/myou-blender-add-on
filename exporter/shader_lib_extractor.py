@@ -37,9 +37,10 @@ replacements = [
     ('#extension GL_EXT_gpu_shader4: enable', ''),
     ('sampler1D', 'sampler2D'),
     # TODO: 3rd argument is bias and not lod, and should use the extension where available
-    ('texture2DLod', 'texture2D'),
-    ('textureCubeLod', 'textureCube'),
-    ('texture1DLod(unflutsamples, (float(u) + 0.5) / float(BSDF_SAMPLES), 0.0).rg;', 'texture2D(unflutsamples, vec2((float(u) + 0.5) / float(BSDF_SAMPLES), 0.5)).rg;'),
+    ('texture2DLod', 'texture2DLodEXT'),
+    ('textureCubeLod', 'textureCubeLodEXT'),
+    (   'texture1DLod(unflutsamples, (float(u) + 0.5) / float(BSDF_SAMPLES), 0.0).rg;',
+     'texture2DLodEXT(unflutsamples, vec2((float(u) + 0.5) / float(BSDF_SAMPLES), 0.5), 0.0).rg;'),
     (re.compile(r'(#define BSDF_SAMPLES \d+)'),r'\1.0'),
     (re.compile(r'(#define LTC_LUT_SIZE \d+)'),r'\1.0'),
     ('int NOISE_SIZE = 64;','float NOISE_SIZE = 64.0;'),
@@ -72,6 +73,12 @@ replacements = [
     # we'll assign the uniform on run time
     (re.compile(r'(uniform vec3 node_wavelength_LUT\[81\]).*?\);', flags=re.DOTALL),r'\1;'),
     ('transpose(mat3(T1, T2, N))','mat3(T1.x, T2.x, N.x, T1.y, T2.y, N.y, T1.z, T2.z, N.z)'),
+
+    # Cannot do dynamic loops
+    ('uniform vec2 unfbsdfsamples;', ''),
+    ('unfbsdfsamples.x', 32.0),
+    ('unfbsdfsamples.y', 1/32.0),
+
 ]
 
 argument_replacements = [
@@ -94,9 +101,9 @@ def do_lib_replacements(lib):
         reps = []
         for a,b in replacements:
             if isinstance(a,str):
-                new_body = body.replace(a,b)
+                new_body = body.replace(a,str(b))
             else:
-                new_body = a.sub(b, body)
+                new_body = a.sub(str(b), body)
                 a = str(a)
             if new_body != body:
                 reps.append(a)
@@ -105,9 +112,44 @@ def do_lib_replacements(lib):
             #print("Function {} has replacements for:\n    {}".format(
                 #name or 'preamble', '\n    '.join(reps)))
         for a,b in argument_replacements:
-            args = args.replace(a,b)
+            args = args.replace(a,str(b))
         if not name: # preamble
             functions.append(body)
         else:
             functions.append("\n{} {}({}){}".format(rtype, name, args, body))
     return ''.join(functions)
+
+
+SHADER_LIB = ""
+debug_lib = True
+
+def set_shader_lib(fragment='', mat=None, scn=None):
+    global SHADER_LIB
+    if not SHADER_LIB or debug_lib:
+        if not fragment:
+            if mat and scn:
+                import gpu
+                fragment = gpu.export_shader(scn, mat)['fragment']
+            else:
+                raise Exception("Wrong arguments")
+        print('Converting shader lib')
+        parts = fragment.rsplit('}',2)
+        SHADER_LIB = "#extension GL_OES_standard_derivatives : enable\n"\
+        +"#extension GL_EXT_shader_texture_lod : enable\n"\
+        +"#ifdef GL_ES\n"\
+        +"precision highp float;\n"\
+        +"precision highp int;\n"\
+        +"#endif\n"\
+        +"#define CORRECTION_NONE\n"\
+        +(parts[0]+'}').replace('\r','')+'\n'
+        SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
+        splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
+        if len(splits) == 3:
+            a,b,c = splits
+            SHADER_LIB = a+'BIT_OPERATIONS\n#endif'+c
+        if debug_lib:
+            open('/tmp/shader_lib.orig.glsl','w').write((parts[0]+'}').replace('\r','')+'\n')
+            open('/tmp/shader_lib.glsl','w').write(SHADER_LIB)
+
+def get_shader_lib():
+    return SHADER_LIB
