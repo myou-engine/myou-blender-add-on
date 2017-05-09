@@ -769,6 +769,23 @@ def ob_to_json(ob, scn, check_cache, used_data):
     for k,v in ob.game.properties.items():
         game_properties[k] = v.value
 
+    if getattr(ob, 'probe_type', 'NONE') != 'NONE':
+        game_properties['probe_options'] = dict(
+            type=ob.probe_type,
+            object=getattr(ob.probe_object, 'name', ''),
+            auto_refresh=ob.probe_refresh_auto,
+            compute_sh=ob.probe_compute_sh,
+            double_refresh=ob.probe_refresh_double,
+            same_layers=ob.probe_use_layers,
+            size=ob.probe_size,
+            sh_quality=ob.probe_sh_quality,
+            clip_start=ob.probe_clip_start,
+            clip_end=ob.probe_clip_end,
+            parallax_type=ob.probe_parallax_type,
+            parallax_volume=getattr(ob.probe_parallax_volume, 'name', ''),
+            reflection_plane=getattr(ob.probe_reflection_plane, 'name', ''),
+        )
+
     parent = ob.parent.name if ob.parent else None
     if parent and ob.parent.proxy:
         parent = ob.parent.proxy.name
