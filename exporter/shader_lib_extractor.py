@@ -121,7 +121,7 @@ def do_lib_replacements(lib):
 
 
 SHADER_LIB = ""
-debug_lib = True
+debug_lib = False
 
 def set_shader_lib(fragment='', mat=None, scn=None):
     global SHADER_LIB
@@ -134,13 +134,20 @@ def set_shader_lib(fragment='', mat=None, scn=None):
                 raise Exception("Wrong arguments")
         print('Converting shader lib')
         parts = fragment.rsplit('}',2)
-        SHADER_LIB = "#extension GL_OES_standard_derivatives : enable\n"\
-        +"#extension GL_EXT_shader_texture_lod : enable\n"\
-        +"#ifdef GL_ES\n"\
-        +"precision highp float;\n"\
-        +"precision highp int;\n"\
-        +"#endif\n"\
-        +"#define CORRECTION_NONE\n"\
+        SHADER_LIB = \
+"""#extension GL_OES_standard_derivatives : enable
+#ifdef GL_ES
+#extension GL_EXT_shader_texture_lod : enable
+precision highp float;
+precision highp int;
+#ifndef GL_EXT_shader_texture_lod
+vec4 texture2DLodEXT(sampler2D t, vec2 c, float level){
+    return texture2D(t, c, 1.0+level);}
+vec4 textureCubeLodEXT(samplerCube t, vec3 c, float level){
+    return textureCube(t, c, 2.0+level);}
+#endif
+#endif
+#define CORRECTION_NONE""" \
         +(parts[0]+'}').replace('\r','')+'\n'
         SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
         splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
