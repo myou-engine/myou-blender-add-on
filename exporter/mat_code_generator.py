@@ -420,6 +420,41 @@ class NodeTreeShaderGenerator:
         ambient = self.shade_clamp_positive(env_sampling_out)
         return self.node_bsdf_opaque(color0, ambient(), total_light())
 
+    def bsdf_toon(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        normal = invars['Normal'].to_vec3()
+        toon_size = invars['Size'].to_float()
+        toon_smooth = invars['Smooth'].to_float()
+
+        N = self.normalize(self.view2world_v3(self.facingnormal()))
+        T = self.normalize(self.view2world_v3(self.default_tangent(self.orco())))
+        roughness = self.value_to_var(0.0)
+        ior = self.value_to_var(0.0)
+        sigma = self.value_to_var(0.0)
+        anisotropy = self.value_to_var(0.0)
+        aniso_rotation = self.value_to_var(0.0)
+        ao_factor = self.ssao()
+        env_sampling_out = self.tmp('vec3')
+        total_light = self.value_to_var(0.0)
+
+        for lamp in self.lamps:
+            # TODO: We're skipping a few things here and there and ignoring light nodes
+            # It should be enough for bsdf glossy_ggx for now
+            light, visifac = self.bsdf_toon_diffuse_sphere_light(lamp, toon_size, toon_smooth)
+            lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
+            strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
+            col_by_strength = self.shade_mul_value_v3(strength, lamp_color)
+            light2 = self.shade_mul_value(visifac, col_by_strength)
+            total_light = self.shade_madd_clamped(total_light, light, light2)
+
+        self.code.append("env_sampling_toon_diffuse(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
+            self.varposition()(), self.unfinvviewmat()(), self.unfviewmat()(),
+            N(), T(), roughness(), ior(), sigma(), toon_size, toon_smooth,
+            anisotropy(), aniso_rotation(), ao_factor(), env_sampling_out()))
+
+        ambient = self.shade_clamp_positive(env_sampling_out)
+        return self.node_bsdf_opaque(color0, ambient(), total_light())
+
     def mix_shader(self, invars, props):
         factor = invars['Fac'].to_float()
         shader0 = invars['Shader'].to_color4()
@@ -455,6 +490,17 @@ class NodeTreeShaderGenerator:
 	"bsdf_glossy_ggx_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
             (N(), lv(), self.varposition()(), dist(), l_areasizex(),
              roughness, out()))
+        return out, visifac
+
+    def bsdf_toon_diffuse_sphere_light(self, lamp, toon_size, toon_smooth):
+        lv, dist, visifac = self.lamp_visibility_other(lamp)
+        N = self.viewN_to_shadeN(self.facingnormal())
+        l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
+        out = self.tmp('float')
+        self.code.append(
+	"bsdf_toon_diffuse_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), 0.0, 0.0, 0.0, {}, {}, 0.0, 0.0, {});".format
+            (N(), lv(), self.varposition()(), dist(), l_areasizex(),
+             toon_size, toon_smooth, out()))
         return out, visifac
 
     def lamp_visibility_other(self, lamp):
