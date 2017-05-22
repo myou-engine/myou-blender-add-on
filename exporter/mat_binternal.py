@@ -312,6 +312,23 @@ def mat_to_json_try(mat, scn):
             param_mats[u['material'].name] = u['material']
             u['material'] = u['material'].name
 
+    # Detect unused varyings (attributes)
+    for line in shader['fragment'].split('\n'):
+        # len<22 filters varposition/varnormal
+        if len(line) < 22 and line.startswith('varying'):
+            _, gltype, name = line[:-1].split(' ')
+            used = False
+            for attr in shader['attributes']:
+                if attr['varname'][3:] == name[3:]:
+                    used = True
+                    break
+            if not used:
+                shader['attributes'].append(dict(
+                    type=-1, # UNUSED
+                    varname=name,
+                    gltype=gltype,
+                ))
+
     # Engine builds its own vertex shader
     del shader['vertex']
     shader['double_sided'] = not mat.game_settings.use_backface_culling
