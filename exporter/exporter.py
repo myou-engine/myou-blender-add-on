@@ -605,10 +605,12 @@ def ob_to_json(ob, scn, check_cache, used_data):
             'cam_type': ob.data.type          # PERSP ORTHO
         }
     elif obtype=='LAMP':
-        size_x = size_y = ob.data.shadow_soft_size
+        size_x = size_y = 0
         if ob.data.type == 'AREA':
             size_x = ob.data.size
-            size_y = ob.data.size_y
+            size_y = ob.data.size if ob.data.shape == 'SQUARE' else ob.data.size_y
+        elif ob.data.type != 'HEMI':
+            size_x = size_y = ob.data.shadow_soft_size
         if scn.render.engine != 'CYCLES':
             color = list(ob.data.color*ob.data.energy)
             energy = 1 # we never modified this in the end
