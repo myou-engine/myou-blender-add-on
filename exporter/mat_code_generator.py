@@ -365,7 +365,7 @@ class NodeTreeShaderGenerator:
         aniso_rotation = self.value_to_var(0.0)
         ao_factor = self.ssao()
         env_sampling_out = self.tmp('vec3')
-        total_light = self.value_to_var(0.0)
+        total_light = self.value_to_var([0.0,0.0,0.0,0.0])
 
         for lamp in self.lamps:
             # TODO: We're skipping a few things here and there and ignoring light nodes
@@ -400,7 +400,7 @@ class NodeTreeShaderGenerator:
         aniso_rotation = self.value_to_var(0.0)
         ao_factor = self.ssao()
         env_sampling_out = self.tmp('vec3')
-        total_light = self.value_to_var(0.0)
+        total_light = self.value_to_var([0.0,0.0,0.0,0.0])
 
         for lamp in self.lamps:
             # TODO: We're skipping a few things here and there and ignoring light nodes
@@ -435,7 +435,7 @@ class NodeTreeShaderGenerator:
         aniso_rotation = self.value_to_var(0.0)
         ao_factor = self.ssao()
         env_sampling_out = self.tmp('vec3')
-        total_light = self.value_to_var(0.0)
+        total_light = self.value_to_var([0.0,0.0,0.0,0.0])
 
         for lamp in self.lamps:
             # TODO: We're skipping a few things here and there and ignoring light nodes
