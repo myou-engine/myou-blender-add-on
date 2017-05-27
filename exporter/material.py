@@ -59,3 +59,30 @@ def mat_to_json(mat, scn, layers):
             uniforms=uniforms,
             varyings=varyings
         )
+
+
+def world_material_to_json(scn):
+    if scn.render.engine == 'CYCLES' and scn.world.use_nodes:
+        if not get_shader_lib():
+            # Create a material just to get the shader library
+            mat = bpy.data.materials.new('delete_me')
+            set_shader_lib('', mat, scn)
+            bpy.data.materials.remove(mat)
+
+        tree = mat_nodes.export_nodes_of_material(scn.world)
+        gen = mat_code_generator.NodeTreeShaderGenerator(tree, [])
+
+        code = gen.get_code()
+        uniforms = gen.get_uniforms()
+        varyings = gen.get_varyings()
+        pprint(uniforms)
+        material_type = 'BLENDER_CYCLES_PBR'
+        return dict(
+            type='MATERIAL',
+            name=scn.name+'_world_background',
+            material_type=material_type,
+            fragment=code,
+            uniforms=uniforms,
+            varyings=varyings
+        )
+    return None

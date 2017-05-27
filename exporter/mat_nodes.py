@@ -86,13 +86,13 @@ def export_nodes_of_group(node_tree):
     tree = {'nodes': nodes, 'output_node_name': output_node.name if output_node else ''}
     return tree
 
-def export_nodes_of_material(mat):
+def export_nodes_of_material(mat): # NOTE: mat can also be a world
     global common_attributes
     # if there is more than one output, the good one is last
     output_node = None
     nodes = {}
     for node in mat.node_tree.nodes:
-        if node.type in ['OUTPUT', 'OUTPUT_MATERIAL']:
+        if node.type in ['OUTPUT', 'OUTPUT_MATERIAL', 'OUTPUT_WORLD']:
             output_node = node
     if output_node:
         common_attributes = set(dir(output_node))

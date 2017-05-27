@@ -181,12 +181,32 @@ def scene_data_to_json(scn=None):
     scn = scn or bpy.context.scene
     world = scn.world or bpy.data.scenes['Scene'].world
     sequences = (scn.sequence_editor and scn.sequence_editor.sequences_all) or []
+    background_probe = {}
+    if hasattr(scn.world, 'probe_size'):
+        background_probe = dict(
+            type='CUBEMAP',
+            object='',
+            auto_refresh=scn.world.probe_refresh_auto,
+            compute_sh=scn.world.probe_compute_sh,
+            double_refresh=False,
+            same_layers=False,
+            size=scn.world.probe_size,
+            sh_quality=scn.world.probe_sh_quality,
+            # These are irrelevant as only one quad is rendered
+            clip_start=1,
+            clip_end=1000,
+            parallax_type='NONE',
+            parallax_volume='',
+            reflection_plane='',
+        )
     scene_data = {
         'type':'SCENE',
         'name': scn.name,
         'gravity' : [0,0,-scn.game_settings.physics_gravity], #list(scn.gravity),
         'background_color' : linearrgb_to_srgb([0,0,0], world.horizon_color),
         'ambient_color': linearrgb_to_srgb([0,0,0], world.ambient_color),
+        'world_material': world_material_to_json(scn),
+        'background_probe': background_probe,
         'debug_physics': scn.game_settings.show_physics_visualization,
         'active_camera': scn.camera.name if scn.camera else 'Camera',
         'stereo': scn.game_settings.stereo == 'STEREO',

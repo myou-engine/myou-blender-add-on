@@ -290,6 +290,15 @@ class NodeTreeShaderGenerator:
         outputs = dict()
         return code, outputs
 
+    def output_world(self, invars, props):
+        in1 = invars['Surface'].to_color4()
+        tmp = self.tmp('vec4')()
+        code = ["linearrgb_to_srgb({0}, {1});"]
+        code += ["gl_FragColor = {1};"]
+        code = self.join_code(code).format(in1, tmp, self.varposition()())
+        outputs = dict()
+        return code, outputs
+
     math_ops = {
         'ADD': "{0} = {1}+{2};",
         'SUBTRACT': "{0} = {1}-{2};",
@@ -349,6 +358,13 @@ class NodeTreeShaderGenerator:
         out = self.tmp('color4')
         code = "node_emission({}, {}, vec3(0.0), {});".format(color, strength, out())
         return code, {'Emission': out}
+
+    def background(self, invars, props):
+        color = invars['Color'].to_color4()
+        strength = invars['Strength'].to_float()
+        out = self.tmp('color4')
+        code = "node_background({}, {}, vec3(0.0), {});".format(color, strength, out())
+        return code, {'Background': out}
 
     def bsdf_diffuse(self, invars, props):
         color0 = invars['Color'].to_color4()
