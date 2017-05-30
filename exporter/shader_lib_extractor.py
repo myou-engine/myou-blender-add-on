@@ -110,6 +110,14 @@ replacements = [
     ('co_homogenous = (projection_matrix_inverse * v);', 'co_homogenous = v;'),
     ('(mat4(1) /*mvmi*/ * co).xyz', '(view_imat3 * co.xyz)'),
     ('mat4(1) /*mvmi*/', 'mat4(1)'),
+    # bad fix for equirectangular seams (just a little bit better than without it)
+    # Still shows a seam but only when looking up or down
+    # TODO: Proper fix using textureLod or textureGrad
+    ('''-atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5;''',
+     '''(view_imat3[2][0]<0.0)?
+        -atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5:
+        -atan(-nco.y, -nco.x) / (2.0 * M_PI);'''
+    ),
 ]
 
 argument_replacements = [
