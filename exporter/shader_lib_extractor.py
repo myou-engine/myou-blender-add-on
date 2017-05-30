@@ -1,19 +1,29 @@
 from pprint import *
 import re
 
+uniforms = '''
+uniform mat3 view_imat3;
+uniform mat4 projection_matrix;
+uniform mat4 projection_matrix_inverse;
+'''
+
 replacements = [
+
     ('''/* These are needed for high quality bump mapping */
 #version 130
 #extension GL_ARB_texture_query_lod: enable
 #define BUMP_BICUBIC''',''),
-    # old shaders
-    ('gl_ModelViewMatrixInverse','mat4(1)'),
+    # matrices, some are used in mat_code_generator.py
+    # and some are removed just so it compiles
+    ('gl_ModelViewMatrixInverse','mat4(1) /*mvmi*/'),
     ('gl_ModelViewMatrix','mat4(1)'),
-    ('gl_ProjectionMatrixInverse','mat4(1)'),
-    ('gl_ProjectionMatrix[3][3]','0.0'),
-    ('gl_ProjectionMatrix','mat4(1)'),
+    ('gl_ProjectionMatrixInverse','projection_matrix_inverse'),
+    #('gl_ProjectionMatrix[3][3]','0.0'),
+    ('gl_ProjectionMatrix','projection_matrix'),
     ('gl_NormalMatrixInverse','mat3(1)'),
     ('gl_NormalMatrix','mat3(1)'),
+
+    # old shaders
     ('shadow2DProj(shadowmap, co).x',
             'step(co.z,texture2D(shadowmap, co.xy).x)'),
     ('gl_LightSource[i].position','vec3(0,0,0)'),
@@ -94,6 +104,12 @@ replacements = [
     }
     vec3 orig_spherical_harmonics_L2(vec3 N){
         vec3 sh = vec3(0.0);'''),
+
+    # World vector for background_transform_to_world and node_tex_coord_background
+    # but using only one matrix uniform
+    ('co_homogenous = (projection_matrix_inverse * v);', 'co_homogenous = v;'),
+    ('(mat4(1) /*mvmi*/ * co).xyz', '(view_imat3 * co.xyz)'),
+    ('mat4(1) /*mvmi*/', 'mat4(1)'),
 ]
 
 argument_replacements = [
@@ -163,7 +179,7 @@ vec4 textureCubeLodEXT(samplerCube t, vec3 c, float level){
 #endif
 #endif
 #define CORRECTION_NONE""" \
-        +(parts[0]+'}').replace('\r','')+'\n'
+        +uniforms+(parts[0]+'}').replace('\r','')+'\n'
         SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
         splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
         if len(splits) == 3:

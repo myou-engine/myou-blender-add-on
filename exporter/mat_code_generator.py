@@ -1,4 +1,4 @@
- 
+
 
 import json
 from pprint import *
@@ -66,6 +66,7 @@ class NodeTreeShaderGenerator:
         # Format of lamps:
         # [{name: ob.name, lamp_type: ob.data.type}, ...]
         # TODO: Shadow configuration etc
+        self.is_background = tree.get('is_background', False)
         self.node_cache = {}
         self.tree = tree
         self.lamps = lamps
@@ -82,8 +83,9 @@ class NodeTreeShaderGenerator:
     def get_code(self):
         varyings = ['varying {} {};'.format(v.glsl_type(), v())
             for u,v in self.varyings.values()]
+        # If it has varname already, it means it was already declared elsewhere
         uniforms = ['uniform {} {};'.format(v.glsl_type(), v())
-            for u,v in self.uniforms.values()]
+            for u,v in self.uniforms.values() if 'varname' not in u]
         return '\n'.join(
             varyings+
             uniforms+
@@ -168,10 +170,14 @@ class NodeTreeShaderGenerator:
             self.varyings[key] = [data, Variable(name, data['datatype'])]
         return self.varyings[key][1]
 
-    def varposition(self):
+    def view_position(self):
         return self.varying(dict(type='VIEW_POSITION', datatype='vec3'))
 
-    def varnormal(self):
+    def proj_position(self):
+        # NOTE: This is Blender's varposition!
+        return self.varying(dict(type='PROJ_POSITION', datatype='vec3'))
+
+    def view_normal(self):
         return self.varying(dict(type='VIEW_NORMAL', datatype='vec3'))
 
     def orco(self):
@@ -185,21 +191,35 @@ class NodeTreeShaderGenerator:
     def uniform(self, data):
         key = json.dumps(data, sort_keys=True)
         if key not in self.uniforms:
-            name = data['type'].lower() + str(len(self.uniforms))
+            name = data.get('varname', data['type'].lower() + str(len(self.uniforms)))
             self.uniforms[key] = [data, Variable(name, data['datatype'])]
         return self.uniforms[key][1]
 
-    def unfviewmat(self):
-        return self.uniform(dict(type='VIEW_MAT', datatype='mat4'))
+    # Some of these are declared in shader_lib_extractor.py
+    # so by assigning explicit varnames, they won't be added again
+    def projection_matrix(self):
+        return self.uniform(dict(type='PROJ_MAT', datatype='mat4',
+                                 varname='projection_matrix'))
 
-    def unfinvviewmat(self):
+    def projection_matrix_inverse(self):
+        return self.uniform(dict(type='PROJ_IMAT', datatype='mat4',
+                                 varname='projection_matrix_inverse'))
+
+    def model_view_matrix(self):
+        return self.uniform(dict(type='OB_VIEW_MAT', datatype='mat4'))
+
+    def view_matrix_inverse(self):
         return self.uniform(dict(type='VIEW_IMAT', datatype='mat4'))
 
-    def unfobmat(self):
+    def object_matrix(self):
         return self.uniform(dict(type='OB_MAT', datatype='mat4'))
 
-    def unfinvobmat(self):
+    def object_matrix_inverse(self):
         return self.uniform(dict(type='OB_IMAT', datatype='mat4'))
+
+    def rotation_matrix_inverse(self):
+        return self.uniform(dict(type='VIEW_IMAT3', datatype='mat3',
+                                 varname='view_imat3'))
 
     #def unfcameratexfactors(self):
         # TODO: also enable gl_ProjectionMatrix
@@ -215,7 +235,7 @@ class NodeTreeShaderGenerator:
 
     def facingnormal(self):
         return self.get_op_cache(['vec3'],
-            "{{}} = gl_FrontFacing? {0}: -{0};".format(self.varnormal()()))[0]
+            "{{}} = gl_FrontFacing? {0}: -{0};".format(self.view_normal()()))[0]
 
     def shade_clamp_positive(self, var):
         return self.get_op_cache(['vec4'],
@@ -223,20 +243,22 @@ class NodeTreeShaderGenerator:
 
     def ssao(self):
         return self.get_op_cache(['float'],
-            "ssao({}, {}, {{}});".format(self.varposition()(), self.facingnormal()()))[0]
+            "ssao({}, {}, {{}});".format(self.view_position()(), self.facingnormal()()))[0]
 
     def normalize(self, var):
         return self.get_op_cache([var.type],
             "vect_normalize({}, {{}});".format(var()))[0]
 
     def view2world_v3(self, var):
+        # TODO: Make sure it needs the model view matrix and not the view matrix
         return self.get_op_cache([var.type],
-            "direction_transform_m4v3({}, {}, {{}});".format(var(), self.unfinvviewmat()()))[0]
+            "direction_transform_m4v3({}, {}, {{}});".format(var(), self.view_matrix_inverse()()))[0]
 
     def default_tangent(self, var):
+        # TODO: Make sure it needs the model view matrix and not the view matrix (and its inverse)
         return self.get_op_cache(['vec3'],
             "default_tangent({}, {}, {}, {}, {}, {{}});"\
-                .format(self.facingnormal()(), var(), self.unfobmat()(), self.unfviewmat()(), self.unfinvviewmat()()))[0]
+                .format(self.facingnormal()(), var(), self.object_matrix()(), self.model_view_matrix()(), self.view_matrix_inverse()()))[0]
 
     def viewN_to_shadeN(self, var):
         return self.get_op_cache([var.type],
@@ -260,21 +282,34 @@ class NodeTreeShaderGenerator:
                 .format(a.to_color4(), b.to_color4(), c.to_color4()))[0]
 
     def node_tex_coord(self):
-        # TODO: REPLACE ARGS BY CONSTANTS AND BACK ONE BY ONE
+        # TODO: Split into several individual functions triggered only when an output is used
+        fname = "node_tex_coord"
+        if self.is_background:
+            fname += "_background"
+            self.rotation_matrix_inverse()
         return self.get_op_cache(['vec3']*7,
-            "node_tex_coord({}, {}, {}, {}, {}, {}, {}, "\
+            "{}({}, {}, {}, {}, {}, {}, {}, "\
                 "{{}}, {{}}, {{}}, {{}}, {{}}, {{}}, {{}});"\
                 .format(
-                    self.varposition()(),
+                    fname,
+                    self.view_position()(),
                     self.facingnormal()(),
-                    self.unfinvviewmat()(),
-                    self.unfinvobmat()(),
+                    self.view_matrix_inverse()(),
+                    self.object_matrix_inverse()(),
                     'vec4(0.0)', #self.unfcameratexfactors()(),
                     self.orco()(),
                     self.uv().to_vec3()
                 ))
 
-
+    def background_transform_to_world(self):
+        # even though this is already declared in the library,
+        # we need to add it as uniform we're using
+        self.rotation_matrix_inverse()
+        # We're using the view position instead of proj position
+        # (see shader_lib_extractor.py)
+        return self.get_op_cache(['vec3'],
+            "background_transform_to_world({}, {{}});"\
+                .format(self.view_position()()))[0]
 
     ## Direct node functions ##
 
@@ -286,7 +321,7 @@ class NodeTreeShaderGenerator:
             code += ["gl_FragColor = vec4({1}.rgb, {2}.z);"]
         else:
             code += ["gl_FragColor = {1};"]
-        code = self.join_code(code).format(in1, tmp, self.varposition()())
+        code = self.join_code(code).format(in1, tmp, self.view_position()())
         outputs = dict()
         return code, outputs
 
@@ -295,7 +330,7 @@ class NodeTreeShaderGenerator:
         tmp = self.tmp('vec4')()
         code = ["linearrgb_to_srgb({0}, {1});"]
         code += ["gl_FragColor = {1};"]
-        code = self.join_code(code).format(in1, tmp, self.varposition()())
+        code = self.join_code(code).format(in1, tmp, self.view_position()())
         outputs = dict()
         return code, outputs
 
@@ -352,6 +387,29 @@ class NodeTreeShaderGenerator:
             code = ''
         return code, dict(Color=out, Alpha=alpha)
 
+    def tex_environment(self, invars, props):
+        ## node_tex_* co input use mapping() with an identity matrix for some reason
+        ## at least with orco. If something's wrong see if mapping was necessary
+        co = invars['Vector']
+        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            co = self.background_transform_to_world()
+        sampler = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['image']))
+        color = self.tmp('color4')
+        if props['projection'] == 'EQUIRECTANGULAR':
+            self.code.append("node_tex_environment_equirectangular({}, {}, {});".format(
+                co.to_vec3(), sampler(), color()))
+        elif props['projection'] == 'MIRROR_BALL':
+            self.code.append("node_tex_environment_mirror_ball({}, {}, {});".format(
+                co.to_vec3(), sampler(), color()))
+        if props['color_space'] == 'COLOR':
+            out = self.tmp('color4')
+            code = "srgb_to_linearrgb({},{});".format(color(), out())
+        else:
+            out = color
+            out.type = 'vec4'
+            code = ''
+        return code, dict(Color=out)
+
     def emission(self, invars, props):
         color = invars['Color'].to_color4()
         strength = invars['Strength'].to_float()
@@ -394,7 +452,7 @@ class NodeTreeShaderGenerator:
             total_light = self.shade_madd_clamped(total_light, light, light2)
 
         self.code.append("env_sampling_diffuse(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            self.varposition()(), self.unfinvviewmat()(), self.unfviewmat()(),
+            self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
             N(), T(), roughness, ior(), sigma(), toon_size(), toon_smooth(),
             anisotropy(), aniso_rotation(), ao_factor(), env_sampling_out()))
 
@@ -429,7 +487,7 @@ class NodeTreeShaderGenerator:
             total_light = self.shade_madd_clamped(total_light, light, light2)
 
         self.code.append("env_sampling_glossy_ggx(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            self.varposition()(), self.unfinvviewmat()(), self.unfviewmat()(),
+            self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
             N(), T(), roughness, ior(), sigma(), toon_size(), toon_smooth(),
             anisotropy(), aniso_rotation(), ao_factor(), env_sampling_out()))
 
@@ -464,7 +522,7 @@ class NodeTreeShaderGenerator:
             total_light = self.shade_madd_clamped(total_light, light, light2)
 
         self.code.append("env_sampling_toon_diffuse(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            self.varposition()(), self.unfinvviewmat()(), self.unfviewmat()(),
+            self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
             N(), T(), roughness(), ior(), sigma(), toon_size, toon_smooth,
             anisotropy(), aniso_rotation(), ao_factor(), env_sampling_out()))
 
@@ -504,7 +562,7 @@ class NodeTreeShaderGenerator:
         out = self.tmp('float')
         self.code.append(
 	"bsdf_glossy_ggx_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
-            (N(), lv(), self.varposition()(), dist(), l_areasizex(),
+            (N(), lv(), self.view_position()(), dist(), l_areasizex(),
              roughness, out()))
         return out, visifac
 
@@ -515,7 +573,7 @@ class NodeTreeShaderGenerator:
         out = self.tmp('float')
         self.code.append(
 	"bsdf_toon_diffuse_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), 0.0, 0.0, 0.0, {}, {}, 0.0, 0.0, {});".format
-            (N(), lv(), self.varposition()(), dist(), l_areasizex(),
+            (N(), lv(), self.view_position()(), dist(), l_areasizex(),
              toon_size, toon_smooth, out()))
         return out, visifac
 
@@ -526,6 +584,5 @@ class NodeTreeShaderGenerator:
         visifac = self.tmp('float')
         self.code.append(
 	"lamp_visibility_other({}, {}, {}, {}, {});".format
-            (self.varposition()(), lampco(), lv(), dist(), visifac()))
+            (self.view_position()(), lampco(), lv(), dist(), visifac()))
         return lv, dist, visifac
-

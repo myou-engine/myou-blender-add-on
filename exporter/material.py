@@ -70,6 +70,7 @@ def world_material_to_json(scn):
             bpy.data.materials.remove(mat)
 
         tree = mat_nodes.export_nodes_of_material(scn.world)
+        tree['is_background'] = True
         gen = mat_code_generator.NodeTreeShaderGenerator(tree, [])
 
         code = gen.get_code()
@@ -83,6 +84,7 @@ def world_material_to_json(scn):
             material_type=material_type,
             fragment=code,
             uniforms=uniforms,
-            varyings=varyings
+            varyings=varyings,
+            fixed_z=1,
         )
     return None

@@ -106,7 +106,7 @@ def search_scene_used_data(scene):
             elif n.bl_idname == 'ShaderNodeTexture' and n.texture:
                 use_normal_map = use_normal_map or getattr(n.texture, 'use_normal_map', False)
                 add_texture(n.texture,i+1)
-            elif n.bl_idname == 'ShaderNodeTexImage':
+            elif n.bl_idname in ('ShaderNodeTexImage', 'ShaderNodeTexEnvironment'):
                 add_image(n.image,i+1)
                 if n.color_space == 'NONE' and \
                     any([link.to_node.type == 'NORMAL_MAP' for link in n.outputs[0].links]):
@@ -159,6 +159,10 @@ def search_scene_used_data(scene):
 
     # Searching and storing stuff in use:
     print('\nSearching used data in the scene: ' + scene.name + '\n')
+
+    # Export background textures(s)
+    if scene.world.use_nodes:
+        search_in_node_tree(scene.world.node_tree, None)
 
     for ob in scene.objects:
         if not ob.parent:
