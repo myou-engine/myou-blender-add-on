@@ -364,6 +364,15 @@ class NodeTreeShaderGenerator:
         outputs = dict(Value=out)
         return code, outputs
 
+    def combrgb(self, invars, props):
+        r = invars['R'].to_float()
+        g = invars['G'].to_float()
+        b = invars['B'].to_float()
+        out = self.tmp('color4')
+        code = "combine_rgb({}, {}, {}, {});".format(r, g, b, out())
+        outputs = dict(Image=out)
+        return code, outputs
+
     def tex_coord(self, invars, props):
         generated, normal, uv, object, camera, window, reflection = self.node_tex_coord()
         return '', dict(Generated=generated, Normal=normal, Uv=uv, Object=object,
