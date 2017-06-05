@@ -382,6 +382,8 @@ class NodeTreeShaderGenerator:
         ## node_tex_image co input uses mapping() with an identity matrix for some reason
         ## at least with orco. If something's wrong see if mapping was necessary
         co = invars['Vector']
+        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            co = self.uv()
         sampler = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['image']))
         color = self.tmp('color4')
         alpha = self.tmp('float')
