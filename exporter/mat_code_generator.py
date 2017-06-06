@@ -186,6 +186,9 @@ class NodeTreeShaderGenerator:
     def uv(self, name=''):
         return self.varying(dict(type='UV', datatype='vec2', attname=name))
 
+    def attr_tangent(self, name=''):
+        return self.varying(dict(type='TANGENT', datatype='vec4', attname=name))
+
     ## Uniforms ##
 
     def uniform(self, data):
@@ -311,7 +314,115 @@ class NodeTreeShaderGenerator:
             "background_transform_to_world({}, {{}});"\
                 .format(self.view_position()()))[0]
 
+    def tangent_orco(self, axis):
+        # axis is lowercase 'x', 'y', 'z'
+        return self.get_op_cache(['vec3'],
+            "tangent_orco_{}({}, {{}});"\
+                .format(axis, self.orco()()))[0]
+
     ## Direct node functions ##
+
+    ## Input nodes ##
+    # TODO: we're mixing view_position and proj_position everywhere
+    # but both are wrong, we need a corrected proj_position
+
+    def camera(self, invars, props):
+        outview = self.tmp('vec3')
+        outdepth = self.tmp('float')
+        outdist = self.tmp('float')
+        code = "camera({}, {}, {}, {});".format(self.proj_position()(), outview(), outdepth(), outdist())
+        outputs = dict(View_Vector=outview, View_Z_Depth=outdepth, View_Distance=outdist)
+        return code, outputs
+
+    def fresnel(self, invars, props):
+        ior = invars['IOR'].to_float()
+        normal = invars['Normal'].to_vec3()
+        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.facingnormal()()
+        out = self.tmp('float')
+        code = "node_fresnel({}, {}, {}, {});".format(ior, normal, self.view_position()(), out())
+        outputs = dict(Fac=out)
+        return code, outputs
+
+    def layer_weight(self, invars, props):
+        blend = invars['Blend'].to_float()
+        normal = invars['Normal'].to_vec3()
+        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.facingnormal()()
+        fresnel = self.tmp('float')
+        facing = self.tmp('float')
+        code = "node_layer_weight({}, {}, {}, {}, {});".format(blend, normal, self.view_position()(), fresnel(), facing())
+        outputs = dict(Fresnel=fresnel, Facing=facing)
+        return code, outputs
+
+    def new_geometry(self, invars, props):
+        position = self.tmp('vec3')
+        normal = self.tmp('vec3')
+        tangent = self.tmp('vec3')
+        true_normal = self.tmp('vec3')
+        incoming = self.tmp('vec3')
+        parametric = self.tmp('vec3')
+        backfacing = self.tmp('float')
+        pointiness = self.tmp('float')
+
+        code = "node_geometry({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
+            self.view_position()(), self.facingnormal()(), self.orco()(),
+            self.view_matrix_inverse()(), self.object_matrix()(),
+            position(), normal(), tangent(), true_normal(), incoming(),
+            parametric(), backfacing(), pointiness(),
+        )
+        outputs = dict(
+            Position=position,
+            Normal=normal,
+            Tangent=tangent,
+            True_Normal=true_normal,
+            Incoming=incoming,
+            Parametric=parametric,
+            Backfacing=backfacing,
+            Pointiness=pointiness,
+        )
+        return code, outputs
+
+    def object_info(self, invars, props):
+        location = self.tmp('vec3')
+        obindex = self.tmp('float')
+        matindex = self.tmp('float')
+        random = self.tmp('float')
+        code = "node_object_info({}, {}, {}, {}, {});".format(
+            self.object_matrix()(), location(), obindex(), matindex(), random(),
+        )
+        outputs = dict(
+            Location=location, Object_Index=obindex,
+            Material_Index=matindex, Random=random,
+        )
+        return code, outputs
+
+    def tangent(self, invars, props):
+        tangent = self.tmp('vec3')
+        ttype = props['direction_type']
+        if ttype == 'RADIAL':
+            v = self.tangent_orco(props['axis'].lower())
+            code = "node_tangent({}, {}, {}, {}, {});".format(
+                self.facingnormal()(), v(),
+                self.object_matrix()(), self.view_matrix_inverse()(), tangent(),
+            )
+        elif ttype == 'UV_MAP':
+            v = self.attr_tangent(props['uv_map'])
+            code = "node_tangentmap({}, {}, {});".format(
+                v(), self.view_matrix_inverse()(), tangent(),
+            )
+        else:
+            raise Exception("Tangent type {} not implemented".format(ttype))
+        outputs = dict(Tangent=tangent)
+        return code, outputs
+
+    def tex_coord(self, invars, props):
+        # TODO: "window" output needs unfcameratexfactors
+        generated, normal, uv, object, camera, window, reflection = self.node_tex_coord()
+        return '', dict(Generated=generated, Normal=normal, UV=uv, Object=object,
+                        Camera=camera, Window=window, Reflection=reflection)
+
+    ## Output nodes ##
 
     def output_material(self, invars, props):
         in1 = invars['Surface'].to_color4()
@@ -373,10 +484,14 @@ class NodeTreeShaderGenerator:
         outputs = dict(Image=out)
         return code, outputs
 
-    def tex_coord(self, invars, props):
-        generated, normal, uv, object, camera, window, reflection = self.node_tex_coord()
-        return '', dict(Generated=generated, Normal=normal, Uv=uv, Object=object,
-                        Camera=camera, Window=window, Reflection=reflection)
+    def combxyz(self, invars, props):
+        x = invars['X'].to_float()
+        y = invars['Y'].to_float()
+        z = invars['Z'].to_float()
+        out = self.tmp('vec3')
+        code = "combine_xyz({}, {}, {}, {});".format(x, y, z, out())
+        outputs = dict(Vector=out)
+        return code, outputs
 
     def tex_image(self, invars, props):
         ## node_tex_image co input uses mapping() with an identity matrix for some reason
@@ -562,7 +677,7 @@ class NodeTreeShaderGenerator:
         l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
         out = self.tmp('float')
         self.code.append(
-	"bsdf_diffuse_sphere_light({}, vec3(0.0), {}, vec3(0.0), vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0),0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
+    "bsdf_diffuse_sphere_light({}, vec3(0.0), {}, vec3(0.0), vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0),0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
             (N(), lv(), dist(), l_areasizex(), out()))
         return out, visifac
 
@@ -572,7 +687,7 @@ class NodeTreeShaderGenerator:
         l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
         out = self.tmp('float')
         self.code.append(
-	"bsdf_glossy_ggx_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
+    "bsdf_glossy_ggx_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
             (N(), lv(), self.view_position()(), dist(), l_areasizex(),
              roughness, out()))
         return out, visifac
@@ -583,7 +698,7 @@ class NodeTreeShaderGenerator:
         l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
         out = self.tmp('float')
         self.code.append(
-	"bsdf_toon_diffuse_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), 0.0, 0.0, 0.0, {}, {}, 0.0, 0.0, {});".format
+    "bsdf_toon_diffuse_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), 0.0, 0.0, 0.0, {}, {}, 0.0, 0.0, {});".format
             (N(), lv(), self.view_position()(), dist(), l_areasizex(),
              toon_size, toon_smooth, out()))
         return out, visifac
@@ -594,6 +709,6 @@ class NodeTreeShaderGenerator:
         dist = self.tmp('float')
         visifac = self.tmp('float')
         self.code.append(
-	"lamp_visibility_other({}, {}, {}, {}, {});".format
+    "lamp_visibility_other({}, {}, {}, {}, {});".format
             (self.view_position()(), lampco(), lv(), dist(), visifac()))
         return lv, dist, visifac

@@ -111,6 +111,10 @@ def search_scene_used_data(scene):
                 if n.color_space == 'NONE' and \
                     any([link.to_node.type == 'NORMAL_MAP' for link in n.outputs[0].links]):
                         used_data['image_is_normal_map'][n.image.name] = True
+            elif n.bl_idname == 'ShaderNodeTangent':
+                if n.direction_type == 'UV_MAP':
+                    # TODO: Specify which UV map is the tangent based on!
+                    use_normal_map = True
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
                     search_in_node_tree(n.node_tree, layers, i+1)

@@ -1,4 +1,4 @@
- 
+
 
 import json
 from pprint import *
@@ -20,10 +20,10 @@ def unique_socket_name(socket):
     # each additional socket will have the index number
     sockets = socket.node.outputs if socket.is_output else socket.node.inputs
     idx = list(sockets).index(socket)
-    name = socket.name.replace(' ','_')
+    name = socket.name
     if sockets[name] != sockets[idx]:
         name += '$'+str(idx)
-    return name
+    return name.replace(' ','_')
 
 def export_node(node):
     out = {'type': node.type, 'inputs': {}}
@@ -101,4 +101,3 @@ def export_nodes_of_material(mat): # NOTE: mat can also be a world
             nodes[node.name] = export_node(node)
     tree = {'nodes': nodes, 'output_node_name': output_node.name if output_node else ''}
     return tree
-
