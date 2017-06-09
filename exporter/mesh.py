@@ -183,7 +183,9 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
     # t=perf_t(t)
     bpy.ops.mesh.select_all(action='SELECT')
     # t=perf_t(t)
-    bpy.ops.mesh.quads_convert_to_tris()
+    # Blender uses the 'FIXED' method for quads, but
+    # 'SHORTEST_DIAGONAL' works better in most cases than the default 'BEAUTY'
+    bpy.ops.mesh.quads_convert_to_tris(quad_method='SHORTEST_DIAGONAL')
     # t=perf_t(t)
 
     # sort faces to minimize cache misses
