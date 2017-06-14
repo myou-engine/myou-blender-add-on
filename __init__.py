@@ -1,10 +1,10 @@
 bl_info = {
     "name": "Myou game engine",
     "author": "Alberto Torres Ruiz, Julio Manuel López Tercero",
-    "version": (0, 5),
-    "blender": (2, 69, 0),
-    "location": "File > Export > Myou engine",
-    "description": "Myou.cat game engine and Myou Logic Nodes compiler.",
+    "version": (0, 6),
+    "blender": (2, 71, 0),
+    "location": "Render panel > Myou engine",
+    "description": "Myou.cat game engine exporter.",
     "warning": "",
     "wiki_url": "",
     "tracker_url": "",
@@ -74,7 +74,7 @@ def register():
         bpy.utils.register_class(ReloadMyouPlugin)
     except:
         pass
-    bpy.types.INFO_MT_file_export.append(exporter.menu_export)
+    # bpy.types.INFO_MT_file_export.append(exporter.menu_export)
     from . import export_panel
     export_panel.register()
     updating = False
@@ -94,6 +94,6 @@ def reload_modules():
 def unregister():
     from . import export_panel
     export_panel.unregister()
-    bpy.types.INFO_MT_file_export.remove(exporter.menu_export)
+    # bpy.types.INFO_MT_file_export.remove(exporter.menu_export)
     for c in reversed(auto_register_classes):
         try_unregister(c)
