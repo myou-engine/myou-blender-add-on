@@ -76,9 +76,12 @@ class NodeTreeShaderGenerator:
         self.op_cache = {}
         self.uniforms = OrderedDict()
         self.varyings = OrderedDict()
+        print("EXPORTING MATERIAL",tree['material_name'])
         if 'output_node_name' in tree:
             output_node = tree['nodes'][tree['output_node_name']]
             outs = self.get_outputs(output_node)
+        else:
+            print('Warning: No output in material', tree['material_name'])
 
     def get_code(self):
         varyings = ['varying {} {};'.format(v.glsl_type(), v())
@@ -552,108 +555,22 @@ class NodeTreeShaderGenerator:
 
     def bsdf_diffuse(self, invars, props):
         color0 = invars['Color'].to_color4()
-        roughness = invars['Roughness'].to_float()
         normal = invars['Normal'].to_vec3()
-
-        N = self.normalize(self.view2world_v3(self.facingnormal()))
-        T = self.normalize(self.view2world_v3(self.default_tangent(self.orco())))
-        ior = self.value_to_var(0.0)
-        sigma = self.value_to_var(0.0)
-        toon_size = self.value_to_var(0.0)
-        toon_smooth = self.value_to_var(0.0)
-        anisotropy = self.value_to_var(0.0)
-        aniso_rotation = self.value_to_var(0.0)
-        ao_factor = self.ssao()
-        env_sampling_out = self.tmp('vec3')
-        total_light = self.value_to_var([0.0,0.0,0.0,0.0])
-
-        for lamp in self.lamps:
-            # TODO: We're skipping a few things here and there and ignoring light nodes
-            # It should be enough for bsdf diffuse for now
-            light, visifac = self.bsdf_diffuse_sphere_light(lamp)
-            lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
-            strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
-            col_by_strength = self.shade_mul_value_v3(strength, lamp_color)
-            light2 = self.shade_mul_value(visifac, col_by_strength)
-            total_light = self.shade_madd_clamped(total_light, light, light2)
-
-        self.code.append("env_sampling_diffuse(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
-            N(), T(), roughness, ior(), sigma(), toon_size(), toon_smooth(),
-            anisotropy(), aniso_rotation(), ao_factor(), env_sampling_out()))
-
-        ambient = self.shade_clamp_positive(env_sampling_out)
-        return self.node_bsdf_opaque(color0, ambient(), total_light())
+        return self.bsdf_opaque('diffuse', color0, normal,
+            roughness=invars['Roughness'].to_float())
 
     def bsdf_glossy(self, invars, props):
         color0 = invars['Color'].to_color4()
-        roughness = invars['Roughness'].to_float()
         normal = invars['Normal'].to_vec3()
-
-        N = self.normalize(self.view2world_v3(self.facingnormal()))
-        T = self.normalize(self.view2world_v3(self.default_tangent(self.orco())))
-        ior = self.value_to_var(0.0)
-        sigma = self.value_to_var(0.0)
-        toon_size = self.value_to_var(0.0)
-        toon_smooth = self.value_to_var(0.0)
-        anisotropy = self.value_to_var(0.0)
-        aniso_rotation = self.value_to_var(0.0)
-        ao_factor = self.ssao()
-        env_sampling_out = self.tmp('vec3')
-        total_light = self.value_to_var([0.0,0.0,0.0,0.0])
-
-        for lamp in self.lamps:
-            # TODO: We're skipping a few things here and there and ignoring light nodes
-            # It should be enough for bsdf glossy_ggx for now
-            light, visifac = self.bsdf_glossy_ggx_sphere_light(lamp, roughness)
-            lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
-            strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
-            col_by_strength = self.shade_mul_value_v3(strength, lamp_color)
-            light2 = self.shade_mul_value(visifac, col_by_strength)
-            total_light = self.shade_madd_clamped(total_light, light, light2)
-
-        self.code.append("env_sampling_glossy_ggx(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
-            N(), T(), roughness, ior(), sigma(), toon_size(), toon_smooth(),
-            anisotropy(), aniso_rotation(), ao_factor(), env_sampling_out()))
-
-        ambient = self.shade_clamp_positive(env_sampling_out)
-        return self.node_bsdf_opaque(color0, ambient(), total_light())
+        return self.bsdf_opaque('glossy_ggx', color0, normal,
+            roughness=invars['Roughness'].to_float())
 
     def bsdf_toon(self, invars, props):
         color0 = invars['Color'].to_color4()
         normal = invars['Normal'].to_vec3()
-        toon_size = invars['Size'].to_float()
-        toon_smooth = invars['Smooth'].to_float()
-
-        N = self.normalize(self.view2world_v3(self.facingnormal()))
-        T = self.normalize(self.view2world_v3(self.default_tangent(self.orco())))
-        roughness = self.value_to_var(0.0)
-        ior = self.value_to_var(0.0)
-        sigma = self.value_to_var(0.0)
-        anisotropy = self.value_to_var(0.0)
-        aniso_rotation = self.value_to_var(0.0)
-        ao_factor = self.ssao()
-        env_sampling_out = self.tmp('vec3')
-        total_light = self.value_to_var([0.0,0.0,0.0,0.0])
-
-        for lamp in self.lamps:
-            # TODO: We're skipping a few things here and there and ignoring light nodes
-            # It should be enough for bsdf glossy_ggx for now
-            light, visifac = self.bsdf_toon_diffuse_sphere_light(lamp, toon_size, toon_smooth)
-            lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
-            strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
-            col_by_strength = self.shade_mul_value_v3(strength, lamp_color)
-            light2 = self.shade_mul_value(visifac, col_by_strength)
-            total_light = self.shade_madd_clamped(total_light, light, light2)
-
-        self.code.append("env_sampling_toon_diffuse(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
-            N(), T(), roughness(), ior(), sigma(), toon_size, toon_smooth,
-            anisotropy(), aniso_rotation(), ao_factor(), env_sampling_out()))
-
-        ambient = self.shade_clamp_positive(env_sampling_out)
-        return self.node_bsdf_opaque(color0, ambient(), total_light())
+        return self.bsdf_opaque('toon_diffuse', color0, normal,
+            toon_size=invars['Size'].to_float(),
+            toon_smooth=invars['Smooth'].to_float())
 
     def mix_shader(self, invars, props):
         factor = invars['Fac'].to_float()
@@ -664,51 +581,84 @@ class NodeTreeShaderGenerator:
         return code, {'Shader': out}
 
     # Indirect BSDF* #
-    def node_bsdf_opaque(self, color, ambient, direct):
+    def bsdf_opaque(self, bsdf_name, color, normal, roughness='0.0', ior='0.0',
+            sigma='0.0', toon_size='0.0', toon_smooth='0.0', anisotropy='0.0',
+            aniso_rotation='0.0'):
+        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.normalize(self.view2world_v3(self.facingnormal()))()
+        tangent = self.normalize(self.view2world_v3(self.default_tangent(self.orco())))()
+        ao_factor = self.ssao()
+        env_sampling_out = self.tmp('vec3')
+        total_light = self.value_to_var([0.0,0.0,0.0,0.0])
+
+        for lamp in self.lamps:
+            # TODO: We're ignoring light nodes
+            if lamp['use_diffuse']: # TODO: is use_specular used?
+                light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, roughness, toon_size, toon_smooth)
+                # should we put this stuff inside bsdf_lamp?
+                lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
+                strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
+                col_by_strength = self.shade_mul_value_v3(strength, lamp_color)
+                light2 = self.shade_mul_value(visifac, col_by_strength)
+                if lamp['use_shadow']:
+                    if lamp['shadow_buffer_type'] == 'VARIANCE':
+                        shadow = self.shadow_vsm(lamp['name'], shade_normal, lv)
+                    else:
+                        raise Exception("Unsupported shadow: "+lamp['shadow_buffer_type'])
+                    light2 = self.shade_mul_value(shadow, light2)
+                total_light = self.shade_madd_clamped(total_light, light, light2)
+
+        self.code.append("env_sampling_{}(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
+            bsdf_name, self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
+            normal, tangent, roughness, ior, sigma, toon_size, toon_smooth,
+            anisotropy, aniso_rotation, ao_factor(), env_sampling_out()))
+
+        ambient = self.shade_clamp_positive(env_sampling_out)
         out = self.tmp('vec4')
-        code = "node_bsdf_opaque({},{},{},{});".format(color, ambient, direct, out())
+        code = "node_bsdf_opaque({},{},{},{});".format(color, ambient(), total_light(), out())
         outputs = dict(BSDF=out)
         return code, outputs
 
-    # Lights #
-    def bsdf_diffuse_sphere_light(self, lamp):
-        lv, dist, visifac = self.lamp_visibility_other(lamp)
-        N = self.viewN_to_shadeN(self.facingnormal())
+    def bsdf_lamp(self, bsdf_name, lamp, roughness, toon_size, toon_smooth):
+        lamp_type = lamp['lamp_type']
+        if lamp_type == 'POINT':
+            fname = 'sphere'
+            lv, dist, visifac = self.lamp_visibility_other(lamp)
+        elif lamp_type == 'SUN':
+            fname = 'sun'
+            lv = self.uniform(dict(lamp=lamp['name'], type='LAMP_DIR', datatype='vec3'))
+            dist = self.value_to_var(1.0)
+            visifac = self.value_to_var(100.0)
+        else:
+            raise Exception("Unknown lamp type "+lamp_type)
         l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
-        out = self.tmp('float')
-        self.code.append(
-    "bsdf_diffuse_sphere_light({}, vec3(0.0), {}, vec3(0.0), vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0),0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
-            (N(), lv(), dist(), l_areasizex(), out()))
-        return out, visifac
 
-    def bsdf_glossy_ggx_sphere_light(self, lamp, roughness):
-        lv, dist, visifac = self.lamp_visibility_other(lamp)
         N = self.viewN_to_shadeN(self.facingnormal())
-        l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
         out = self.tmp('float')
         self.code.append(
-    "bsdf_glossy_ggx_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, {});".format
-            (N(), lv(), self.view_position()(), dist(), l_areasizex(),
-             roughness, out()))
-        return out, visifac
-
-    def bsdf_toon_diffuse_sphere_light(self, lamp, toon_size, toon_smooth):
-        lv, dist, visifac = self.lamp_visibility_other(lamp)
-        N = self.viewN_to_shadeN(self.facingnormal())
-        l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
-        out = self.tmp('float')
-        self.code.append(
-    "bsdf_toon_diffuse_sphere_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), 0.0, 0.0, 0.0, {}, {}, 0.0, 0.0, {});".format
-            (N(), lv(), self.view_position()(), dist(), l_areasizex(),
-             toon_size, toon_smooth, out()))
-        return out, visifac
+    "bsdf_{}_{}_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, {}, {}, 0.0, 0.0, {});".format
+            (bsdf_name, fname, N(), lv(), self.view_position()(), dist(), l_areasizex(),
+            roughness, toon_size, toon_smooth, out()))
+        return out, visifac, N, lv
 
     def lamp_visibility_other(self, lamp):
         lampco = self.uniform(dict(lamp=lamp['name'], type='LAMP_CO', datatype='vec3'))
-        lv = self.tmp('vec3')
-        dist = self.tmp('float')
-        visifac = self.tmp('float')
-        self.code.append(
-    "lamp_visibility_other({}, {}, {}, {}, {});".format
-            (self.view_position()(), lampco(), lv(), dist(), visifac()))
-        return lv, dist, visifac
+        return self.get_op_cache(['vec3', 'float', 'float'],
+            "lamp_visibility_other({}, {}, {{}}, {{}}, {{}});".format(self.view_position()(), lampco()))
+
+    def shadow_vsm(self, lamp_name, shade_normal, lv):
+        shade_inp = self.get_op_cache(['float'],
+            "shade_inp({}, {}, {{}});".format(shade_normal(), lv()))[0]
+        shadow_map = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_MAP', datatype='sampler2D'))
+        shadow_proj = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_PROJ', datatype='mat4'))
+        shadow_bias = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_BIAS', datatype='float'))
+        bleed_bias = self.uniform(dict(lamp=lamp_name, type='LAMP_BLEED_BIAS', datatype='float'))
+        return self.get_op_cache(['float'],
+            "test_shadowbuf_vsm({}, {}, {}, {}, {}, {}, {{}});".format(
+                self.view_position()(),
+                shadow_map(),
+                shadow_proj(),
+                shadow_bias(),
+                bleed_bias(),
+                shade_inp(),
+            ))[0]

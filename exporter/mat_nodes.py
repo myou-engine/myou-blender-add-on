@@ -99,5 +99,9 @@ def export_nodes_of_material(mat): # NOTE: mat can also be a world
     for node in mat.node_tree.nodes:
         if node.type != 'REROUTE':
             nodes[node.name] = export_node(node)
-    tree = {'nodes': nodes, 'output_node_name': output_node.name if output_node else ''}
+    tree = {
+        'material_name': mat.name,
+        'nodes': nodes,
+        'output_node_name': output_node.name if output_node else ''
+    }
     return tree
