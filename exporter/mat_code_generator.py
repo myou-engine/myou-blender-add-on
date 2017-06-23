@@ -496,6 +496,42 @@ class NodeTreeShaderGenerator:
         outputs = dict(Vector=out)
         return code, outputs
 
+    BLEND_TYPES = {
+        'MIX': 'mix',
+        'ADD': 'add',
+        'MULTIPLY': 'mult',
+        'SUBTRACT': 'sub',
+        'SCREEN': 'screen',
+        'DIVIDE': 'div',
+        'DIFFERENCE': 'diff',
+        'DARKEN': 'dark',
+        'LIGHTEN': 'light',
+        'OVERLAY': 'overlay',
+        'DODGE': 'dodge',
+        'BURN': 'burn',
+        'HUE': 'hue',
+        'SATURATION': 'sat',
+        'VALUE': 'val',
+        'COLOR': 'color',
+        'SOFT_LIGHT': 'soft',
+        'LINEAR_LIGHT': 'linear',
+    }
+
+    def mix_rgb(self, invars, props):
+        blend_type = self.BLEND_TYPES[props['blend_type']]
+        fac = invars['Fac'].to_float()
+        color1 = invars['Color1'].to_color4()
+        color2 = invars['Color2'].to_color4()
+        out = self.tmp('color4')
+        code = "mix_{}({}, {}, {}, {});".format(blend_type, fac, color1, color2, out())
+        outputs = dict(Color=out)
+        if props['use_clamp']:
+            clamped = self.tmp('vec3')
+            self.code.append(code)
+            code = "{} = clamp({}, vec3(0.0), vec3(1.0));".format(clamped(), out.to_vec3())
+            outputs = dict(Color=clamped)
+        return code, outputs
+
     def tex_image(self, invars, props):
         ## node_tex_image co input uses mapping() with an identity matrix for some reason
         ## at least with orco. If something's wrong see if mapping was necessary
