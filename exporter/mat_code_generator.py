@@ -600,7 +600,7 @@ class NodeTreeShaderGenerator:
                 strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
                 col_by_strength = self.shade_mul_value_v3(strength, lamp_color)
                 light2 = self.shade_mul_value(visifac, col_by_strength)
-                if lamp['use_shadow']:
+                if lamp['lamp_type'] not in ['POINT', 'HEMI'] and lamp['use_shadow']:
                     if lamp['shadow_buffer_type'] == 'VARIANCE':
                         shadow = self.shadow_vsm(lamp['name'], shade_normal, lv)
                     else:
