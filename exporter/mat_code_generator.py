@@ -214,6 +214,9 @@ class NodeTreeShaderGenerator:
     def model_view_matrix(self):
         return self.uniform(dict(type='OB_VIEW_MAT', datatype='mat4'))
 
+    def view_matrix(self):
+        return self.uniform(dict(type='VIEW_MAT', datatype='mat4'))
+
     def view_matrix_inverse(self):
         return self.uniform(dict(type='VIEW_IMAT', datatype='mat4'))
 
@@ -260,11 +263,16 @@ class NodeTreeShaderGenerator:
         return self.get_op_cache([var.type],
             "direction_transform_m4v3({}, {}, {{}});".format(var(), self.view_matrix_inverse()()))[0]
 
-    def default_tangent(self, var):
-        # TODO: Make sure it needs the model view matrix and not the view matrix (and its inverse)
+    def world2view_v3(self, var):
+        # TODO: Make sure it needs the model view matrix and not the view matrix
+        return self.get_op_cache([var.type],
+            "direction_transform_m4v3({}, {}, {{}});".format(var(), self.view_matrix()()))[0]
+
+    def default_tangent(self):
+        # This is the same as the "tangent" node with radial Z
         return self.get_op_cache(['vec3'],
             "default_tangent({}, {}, {}, {}, {}, {{}});"\
-                .format(self.facingnormal()(), var(), self.object_matrix()(), self.model_view_matrix()(), self.view_matrix_inverse()()))[0]
+                .format(self.facingnormal()(), self.orco()(), self.object_matrix()(), self.view_matrix()(), self.view_matrix_inverse()()))[0]
 
     def viewN_to_shadeN(self, var):
         return self.get_op_cache([var.type],
@@ -404,11 +412,17 @@ class NodeTreeShaderGenerator:
         tangent = self.tmp('vec3')
         ttype = props['direction_type']
         if ttype == 'RADIAL':
-            v = self.tangent_orco(props['axis'].lower())
-            code = "node_tangent({}, {}, {}, {}, {});".format(
-                self.facingnormal()(), v(),
-                self.object_matrix()(), self.view_matrix_inverse()(), tangent(),
-            )
+            if props['axis']=='Z':
+                # optional optimization, since defailt_tangent() gives
+                # the same value but may be cached
+                code = ''
+                tangent = self.default_tangent()
+            else:
+                v = self.tangent_orco(props['axis'].lower())
+                code = "node_tangent({}, {}, {}, {}, {});".format(
+                    self.facingnormal()(), v(),
+                    self.object_matrix()(), self.view_matrix_inverse()(), tangent(),
+                )
         elif ttype == 'UV_MAP':
             v = self.attr_tangent(props['uv_map'])
             code = "node_tangentmap({}, {}, {});".format(
@@ -596,6 +610,16 @@ class NodeTreeShaderGenerator:
         code = "node_background({}, {}, vec3(0.0), {});".format(color, strength, out())
         return code, {'Background': out}
 
+    def bsdf_anisotropic(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        normal = invars['Normal'].to_vec3()
+        tangent = invars['Tangent'].to_vec3()
+        return self.bsdf_opaque('anisotropic_'+props['distribution'].lower(),
+            color0, normal, tangent,
+            roughness=invars['Roughness'].to_float(),
+            anisotropy=invars['Anisotropy'].to_float(),
+            aniso_rotation=invars['Rotation'].to_float())
+
     def bsdf_diffuse(self, invars, props):
         color0 = invars['Color'].to_color4()
         normal = invars['Normal'].to_vec3()
@@ -605,7 +629,7 @@ class NodeTreeShaderGenerator:
     def bsdf_glossy(self, invars, props):
         color0 = invars['Color'].to_color4()
         normal = invars['Normal'].to_vec3()
-        return self.bsdf_opaque('glossy_ggx', color0, normal,
+        return self.bsdf_opaque('glossy_'+props['distribution'].lower(), color0, normal,
             roughness=invars['Roughness'].to_float())
 
     def bsdf_toon(self, invars, props):
@@ -615,6 +639,13 @@ class NodeTreeShaderGenerator:
             toon_size=invars['Size'].to_float(),
             toon_smooth=invars['Smooth'].to_float())
 
+    def add_shader(self, invars, props):
+        shader0 = invars['Shader'].to_color4()
+        shader1 = invars['Shader$1'].to_color4()
+        out = self.tmp('color4')
+        code = "node_add_shader({}, {}, {});".format(shader0, shader1, out())
+        return code, {'Shader': out}
+
     def mix_shader(self, invars, props):
         factor = invars['Fac'].to_float()
         shader0 = invars['Shader'].to_color4()
@@ -623,13 +654,24 @@ class NodeTreeShaderGenerator:
         code = "node_mix_shader({}, {}, {}, {});".format(factor, shader0, shader1, out())
         return code, {'Shader': out}
 
+    def ambient_occlusion(self, invars, props):
+        color = invars['Color'].to_color4()
+        out = self.tmp('color4')
+        code = "node_bsdf_opaque({}, vec4(vec3({}), 1.0), vec4(0.0), {});".format(color, self.ssao()(), out())
+        return code, {'AO': out}
+
     # Indirect BSDF* #
-    def bsdf_opaque(self, bsdf_name, color, normal, roughness='0.0', ior='0.0',
-            sigma='0.0', toon_size='0.0', toon_smooth='0.0', anisotropy='0.0',
-            aniso_rotation='0.0'):
+    def bsdf_opaque(self, bsdf_name, color, normal, tangent='vec3(0.0, 0.0, 0.0)',
+            roughness='0.0', ior='0.0', sigma='0.0',
+            toon_size='0.0', toon_smooth='0.0',
+            anisotropy='0.0', aniso_rotation='0.0'):
         if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             normal = self.normalize(self.view2world_v3(self.facingnormal()))()
-        tangent = self.normalize(self.view2world_v3(self.default_tangent(self.orco())))()
+        if tangent == 'vec3(0.0, 0.0, 0.0)': # if it's not connected or it has no socket
+            view_tangent = self.normalize(self.default_tangent()) # optimize: remove normalize when not necessary
+            tangent = self.normalize(self.view2world_v3(view_tangent))()
+        else:
+            view_tangent = self.world2view_v3(Variable(tangent, 'vec3'))
         ao_factor = self.ssao()
         env_sampling_out = self.tmp('vec3')
         total_light = self.value_to_var([0.0,0.0,0.0,0.0])
@@ -637,7 +679,7 @@ class NodeTreeShaderGenerator:
         for lamp in self.lamps:
             # TODO: We're ignoring light nodes
             if lamp['use_diffuse']: # TODO: is use_specular used?
-                light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, roughness, toon_size, toon_smooth)
+                light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, view_tangent(), roughness, toon_size, toon_smooth, anisotropy, aniso_rotation)
                 # should we put this stuff inside bsdf_lamp?
                 lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
                 strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
@@ -651,6 +693,7 @@ class NodeTreeShaderGenerator:
                     light2 = self.shade_mul_value(shadow, light2)
                 total_light = self.shade_madd_clamped(total_light, light, light2)
 
+        bsdf_name = bsdf_name.replace('anisotropic_', 'aniso_')
         self.code.append("env_sampling_{}(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
             bsdf_name, self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
             normal, tangent, roughness, ior, sigma, toon_size, toon_smooth,
@@ -662,7 +705,7 @@ class NodeTreeShaderGenerator:
         outputs = dict(BSDF=out)
         return code, outputs
 
-    def bsdf_lamp(self, bsdf_name, lamp, roughness, toon_size, toon_smooth):
+    def bsdf_lamp(self, bsdf_name, lamp, view_tangent, roughness, toon_size, toon_smooth, anisotropy, aniso_rotation):
         lamp_type = lamp['lamp_type']
         if lamp_type == 'POINT':
             fname = 'sphere'
@@ -679,9 +722,10 @@ class NodeTreeShaderGenerator:
         N = self.viewN_to_shadeN(self.facingnormal())
         out = self.tmp('float')
         self.code.append(
-    "bsdf_{}_{}_light({}, vec3(0.0), {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, {}, {}, 0.0, 0.0, {});".format
-            (bsdf_name, fname, N(), lv(), self.view_position()(), dist(), l_areasizex(),
-            roughness, toon_size, toon_smooth, out()))
+    "bsdf_{}_{}_light({}, {}, {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, {}, {}, {}, {}, {});".format
+            (bsdf_name, fname, N(), view_tangent, lv(), self.view_position()(), dist(), l_areasizex(),
+            roughness, toon_size, toon_smooth, anisotropy, aniso_rotation, out()))
+            # missing: l_coords, l_areasizey, l_areascale, l_mat: only for area light
         return out, visifac, N, lv
 
     def lamp_visibility_other(self, lamp):
