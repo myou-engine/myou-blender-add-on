@@ -76,6 +76,7 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
 
         # Find settings in textures. Since there's no UI in Blender for
         # custom properties of images, we'll look at them in textures.
+        # Alternatively we'll find global settings in the scene as "texture_lod_levels"
         tex_with_settings = None
         for tex in used_data['image_users'][image.name]:
             if 'lod_levels' in tex:
@@ -85,12 +86,17 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
                     raise Exception('There are several textures with settings for image '+image.name+':\n'+
                         tex_with_settings.name+' and '+tex.name+'. Please remove settings from one of them')
 
+        def parse_lod_levels(levels):
+            if isinstance(levels, str):
+                return loads(levels)
+            else:
+                return list(levels)
+
         lod_levels = []
         if tex_with_settings:
-            if isinstance(tex_with_settings['lod_levels'], str):
-                lod_levels = loads(tex_with_settings['lod_levels'])
-            else:
-                lod_levels = list(tex_with_settings['lod_levels'])
+            lod_levels = parse_lod_levels(tex_with_settings['lod_levels'])
+        elif 'texture_lod_levels' in scene:
+            lod_levels = parse_lod_levels(scene['texture_lod_levels'])
 
         real_path = bpy.path.abspath(image.filepath)
         tmp_filepath = None
