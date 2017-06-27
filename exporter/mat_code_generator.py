@@ -496,8 +496,15 @@ class NodeTreeShaderGenerator:
         outputs = dict(Vector=out)
         return code, outputs
 
+    def sepxyz(self, invars, props):
+        v = invars['Vector'].to_vec3();
+        x = Variable("({}).x".format(v), 'float')
+        y = Variable("({}).y".format(v), 'float')
+        z = Variable("({}).z".format(v), 'float')
+        return '', dict(X=x, Y=y, Z=z)
+
     BLEND_TYPES = {
-        'MIX': 'mix',
+        'MIX': 'blend',
         'ADD': 'add',
         'MULTIPLY': 'mult',
         'SUBTRACT': 'sub',
