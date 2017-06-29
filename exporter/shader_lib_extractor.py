@@ -118,6 +118,9 @@ replacements = [
         -atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5:
         -atan(-nco.y, -nco.x) / (2.0 * M_PI);'''
     ),
+
+    # Same name of variable and function doesn't work in ANGLE
+    (re.compile(r'disk_energy(?!\()', flags=re.DOTALL), r'd_energy'),
 ]
 
 argument_replacements = [
