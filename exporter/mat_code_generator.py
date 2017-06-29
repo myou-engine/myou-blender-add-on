@@ -177,8 +177,11 @@ class NodeTreeShaderGenerator:
         return self.varying(dict(type='VIEW_POSITION', datatype='vec3'))
 
     def proj_position(self):
-        # NOTE: This is Blender's varposition!
-        return self.varying(dict(type='PROJ_POSITION', datatype='vec3'))
+        return self.varying(dict(type='PROJ_POSITION', datatype='vec4'))
+
+    def proj_position3(self):
+        # NOTE: This is Blender's varposition! But it doesn't work.
+        return Variable(self.varying(dict(type='PROJ_POSITION', datatype='vec4')).to_vec3(), 'vec3')
 
     def view_normal(self):
         return self.varying(dict(type='VIEW_NORMAL', datatype='vec3'))
@@ -341,7 +344,7 @@ class NodeTreeShaderGenerator:
         outview = self.tmp('vec3')
         outdepth = self.tmp('float')
         outdist = self.tmp('float')
-        code = "camera({}, {}, {}, {});".format(self.proj_position()(), outview(), outdepth(), outdist())
+        code = "camera({}, {}, {}, {});".format(self.proj_position3()(), outview(), outdepth(), outdist())
         outputs = dict(View_Vector=outview, View_Z_Depth=outdepth, View_Distance=outdist)
         return code, outputs
 
@@ -626,11 +629,39 @@ class NodeTreeShaderGenerator:
         return self.bsdf_opaque('diffuse', color0, normal,
             roughness=invars['Roughness'].to_float())
 
+    def bsdf_glass(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        normal = invars['Normal'].to_vec3()
+        return self.bsdf_opaque('glass_'+props['distribution'].lower(), color0, normal,
+            roughness=invars['Roughness'].to_float(),
+            ior=invars['IOR'].to_float())
+
     def bsdf_glossy(self, invars, props):
         color0 = invars['Color'].to_color4()
         normal = invars['Normal'].to_vec3()
         return self.bsdf_opaque('glossy_'+props['distribution'].lower(), color0, normal,
             roughness=invars['Roughness'].to_float())
+
+    def bsdf_hair(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        offset = invars['Offset'].to_float()
+        roughnessU = invars['RoughnessU'].to_float()
+        roughnessV = invars['RoughnessV'].to_float()
+        tangent = invars['Tangent'].to_vec3()
+        out = self.tmp('color4')
+        code = "node_bsdf_hair({},{},{},{},{},{});".format(
+            color0, offset, roughnessU, roughnessV, tangent, out())
+        return code, dict(BSDF=out)
+
+    def holdout(self, invars, props):
+        return '', dict(Holdout=self.value_to_var([0.0,0.0,0.0,0.0]))
+
+    def bsdf_refraction(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        normal = invars['Normal'].to_vec3()
+        return self.bsdf_opaque('refract_'+props['distribution'].lower(), color0, normal,
+            roughness=invars['Roughness'].to_float(),
+            ior=invars['IOR'].to_float())
 
     def bsdf_toon(self, invars, props):
         color0 = invars['Color'].to_color4()
@@ -638,6 +669,39 @@ class NodeTreeShaderGenerator:
         return self.bsdf_opaque('toon_diffuse', color0, normal,
             toon_size=invars['Size'].to_float(),
             toon_smooth=invars['Smooth'].to_float())
+
+    def bsdf_translucent(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        normal = invars['Normal'].to_vec3()
+        return self.bsdf_opaque('translucent', color0, normal)
+
+    def bsdf_transparent(self, invars, props):
+        # Not sure what's the point of this shader, but it works the same as in Blender PBR branch
+        color0 = invars['Color'].to_color4()
+        return self.bsdf_opaque('transparent', color0,
+        # these are different than unconnected sockets, so they won't be calculated
+        'vec3(0.0)', tangent='vec3(0.0)',
+        use_lights=False)
+
+    def subsurface_scattering(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        scale = invars['Scale'].to_float()
+        radius = invars['Radius'].to_vec3()
+        sharpness = invars['Sharpness'].to_float()
+        blur = invars['Texture_Blur'].to_float()
+        normal = invars['Normal'].to_vec3()
+        # out = self.tmp('color4')
+        # code = "node_subsurface_scattering({},{},{},{},{},{},{});".format(
+        #     color0, scale, radius, sharpness, blur, normal, out())
+        out = self.value_to_var([0.0,0.0,0.0,0.0])
+        code = ''
+        return code, dict(BSSRDF=out)
+
+    def bsdf_velvet(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        normal = invars['Normal'].to_vec3()
+        return self.bsdf_opaque('velvet', color0, normal,
+            sigma=invars['Sigma'].to_float())
 
     def add_shader(self, invars, props):
         shader0 = invars['Shader'].to_color4()
@@ -664,7 +728,8 @@ class NodeTreeShaderGenerator:
     def bsdf_opaque(self, bsdf_name, color, normal, tangent='vec3(0.0, 0.0, 0.0)',
             roughness='0.0', ior='0.0', sigma='0.0',
             toon_size='0.0', toon_smooth='0.0',
-            anisotropy='0.0', aniso_rotation='0.0'):
+            anisotropy='0.0', aniso_rotation='0.0',
+            use_lights=True):
         if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             normal = self.normalize(self.view2world_v3(self.facingnormal()))()
         if tangent == 'vec3(0.0, 0.0, 0.0)': # if it's not connected or it has no socket
@@ -678,7 +743,7 @@ class NodeTreeShaderGenerator:
 
         for lamp in self.lamps:
             # TODO: We're ignoring light nodes
-            if lamp['use_diffuse']: # TODO: is use_specular used?
+            if use_lights and lamp['use_diffuse']: # TODO: is use_specular used?
                 light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, view_tangent(), roughness, toon_size, toon_smooth, anisotropy, aniso_rotation)
                 # should we put this stuff inside bsdf_lamp?
                 lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
