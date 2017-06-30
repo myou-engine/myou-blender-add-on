@@ -53,6 +53,17 @@ class Variable:
             return self()
         raise Exception(self.type)
 
+    def to_vec4(self):
+        if self.type=='float':
+            return "vec4(vec3({}), 1.0)".format(self())
+        elif self.type=='vec2':
+            return "vec4({}.xy, 0.0, 1.0)".format(self())
+        elif self.type in ['vec3', 'color3']:
+            return "vec4({}.xyz, 1.0)".format(self())
+        elif self.type in ['vec4','color4']:
+            return self()
+        raise Exception(self.type)
+
     def to_normal(self, generator):
         if self.type in ['color3', 'color4']:
             tmp = generator.tmp('vec3')
@@ -814,3 +825,65 @@ class NodeTreeShaderGenerator:
                 bleed_bias(),
                 shade_inp(),
             ))[0]
+
+    ## Color nodes
+
+    def brightcontrast(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        bright = invars['Bright'].to_float()
+        contrast = invars['Contrast'].to_float()
+        out = self.tmp('color4')
+        code = "brightness_contrast({}, {}, {}, {});".format(
+            color0, bright, contrast, out())
+        return code, dict(Color=out)
+
+    def gamma(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        gamma = invars['Gamma'].to_float()
+        out = self.tmp('color4')
+        code = "node_gamma({}, {}, {});".format(
+            color0, gamma, out())
+        return code, dict(Color=out)
+
+    def hue_sat(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        hue = invars['Hue'].to_float()
+        saturation = invars['Saturation'].to_float()
+        value = invars['Value'].to_float()
+        fac = invars['Fac'].to_float()
+        out = self.tmp('color4')
+        code = "hue_sat({}, {}, {}, {}, {}, {});".format(
+            hue, saturation, value, fac, color0, out())
+        return code, dict(Color=out)
+
+    def invert(self, invars, props):
+        color0 = invars['Color'].to_color4()
+        fac = invars['Fac'].to_float()
+        out = self.tmp('color4')
+        code = "invert({}, {}, {});".format(
+            fac, color0, out())
+        return code, dict(Color=out)
+
+    def light_falloff(self, invars, props):
+        # TODO: This is for lamps
+        q = self.tmp('float')
+        l = self.tmp('float')
+        c = self.tmp('float')
+        code = "node_light_falloff({}, {}, {}, {}, {}, {}, {});".format(
+            invars['Strength'].to_float(),
+            invars['Smooth'].to_float(),
+            'vec4(0.0)',
+            self.view_position()(),
+            q(), l(), c())
+        return code, dict(Quadratic=q, Linear=l, Constant=c)
+
+    def curve_rgb(self, invars, props):
+        pprint(props)
+        ramp = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['ramp_name']))
+        out = self.tmp('color4')
+        code = "curves_rgb({}, {}, {}, {});".format(
+            invars['Fac'].to_float(),
+            invars['Color'].to_color4(),
+            ramp(),
+            out())
+        return code, dict(Color=out)

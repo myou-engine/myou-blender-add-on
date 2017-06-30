@@ -2,6 +2,7 @@
 
 import json
 from pprint import *
+from array import array
 
 # To be overwritten by set(dir(output_node)) if present
 common_attributes = {'__doc__', '__module__', '__slots__', 'bl_description',
@@ -15,6 +16,45 @@ common_attributes = {'__doc__', '__module__', '__slots__', 'bl_description',
 'show_texture', 'socket_value_update', 'type', 'update', 'use_custom_color',
 'width', 'width_hidden'}
 
+RAMP_SIZE = 256
+
+def get_rgba_curve_hash(mapping, ramps):
+    mapping.initialize()
+    arr = array('B', [0]*RAMP_SIZE*4)
+    pixel = 1/RAMP_SIZE
+    pos = pixel*0.5
+    r,g,b,a = mapping.curves
+    for i in range(RAMP_SIZE):
+        i4 = i<<2
+        arr[i4] = round(r.evaluate(pos)*255)
+        arr[i4+1] = round(g.evaluate(pos)*255)
+        arr[i4+2] = round(b.evaluate(pos)*255)
+        arr[i4+3] = round(a.evaluate(pos)*255)
+        pos += pixel
+    ramp_hash = str(hash(arr.tobytes()))
+    if ramp_hash not in ramps:
+        ramps[ramp_hash] = arr.tolist() # json-compatible
+    return ramp_hash
+
+def get_xyz_curve_hash(mapping, ramps):
+    mapping.initialize()
+    arr = array('B', [0]*RAMP_SIZE*4)
+    pixel = 1/RAMP_SIZE
+    pos = pixel*0.5
+    x,y,z = mapping.curves
+    for i in range(RAMP_SIZE):
+        i4 = i<<2
+        arr[i4] = round(r.evaluate(pos)*255)
+        arr[i4+1] = round(g.evaluate(pos)*255)
+        arr[i4+2] = round(b.evaluate(pos)*255)
+        pos += pixel
+    ramp_hash = hash(arr.tobytes())
+    if ramp_hash not in ramps:
+        ramps[ramp_hash] = arr.tolist() # json-compatible
+    return ramp_hash
+
+
+
 def unique_socket_name(socket):
     # If there's more than one socket with the same name,
     # each additional socket will have the index number
@@ -25,7 +65,7 @@ def unique_socket_name(socket):
         name += '$'+str(idx)
     return name.replace(' ','_')
 
-def export_node(node):
+def export_node(node, ramps):
     out = {'type': node.type, 'inputs': {}}
     for input in node.inputs:
         inp = out['inputs'][unique_socket_name(input)] = {}
@@ -70,10 +110,15 @@ def export_node(node):
     if node.type == 'GROUP':
         # we're embedding the group for now
         # (the better way is to have each group converted once)
-        out['node_tree'] = export_nodes_of_group(node.node_tree)
+        out['node_tree'] = export_nodes_of_group(node.node_tree, ramps)
+    elif node.type == 'CURVE_RGB':
+        out_props['ramp_name'] = get_rgba_curve_hash(node.mapping, ramps)
+    elif node.type == 'CURVE_VEC':
+        out_props['ramp_name'] = get_xyz_curve_hash(node.mapping, ramps)
+    pprint(out)
     return out
 
-def export_nodes_of_group(node_tree):
+def export_nodes_of_group(node_tree, ramps):
     # if there is more than one output, the good one is last
     output_node = None
     nodes = {}
@@ -91,6 +136,7 @@ def export_nodes_of_material(mat): # NOTE: mat can also be a world
     # if there is more than one output, the good one is last
     output_node = None
     nodes = {}
+    ramps = {}
     for node in mat.node_tree.nodes:
         if node.type in ['OUTPUT', 'OUTPUT_MATERIAL', 'OUTPUT_WORLD']:
             output_node = node
@@ -98,10 +144,11 @@ def export_nodes_of_material(mat): # NOTE: mat can also be a world
         common_attributes = set(dir(output_node))
     for node in mat.node_tree.nodes:
         if node.type != 'REROUTE':
-            nodes[node.name] = export_node(node)
+            nodes[node.name] = export_node(node, ramps)
     tree = {
         'material_name': mat.name,
         'nodes': nodes,
+        'ramps': ramps,
         'output_node_name': output_node.name if output_node else ''
     }
     return tree

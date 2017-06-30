@@ -1098,6 +1098,23 @@ def whole_scene_to_json(scn, used_data, textures_path):
                     for mat in used_data['materials']]
     act_json = [action_to_json(action, used_data['action_users'][action.name])
                     for action in used_data['actions']]
+    # Export ramps and curve mappings and remove them from materials
+    # (for de-duplication)
+    ramps = {}
+    for mat in mat_json:
+        ramps.update(mat['ramps'])
+        del mat['ramps']
+    for name,ramp in ramps.items():
+        image_json.append({
+            'type': 'TEXTURE',
+            'name': str(name),
+            'formats': {'raw_pixels': {
+                'width': len(ramp) / 4,
+                'height': 1,
+                'pixels': ramp,
+            }},
+            'wrap': 'C',
+        })
     # We must export shader lib after materials, but engine has to read it before
     ret.append({"type":"SHADER_LIB","code": get_shader_lib()})
     ret += image_json + mat_json + act_json

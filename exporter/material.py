@@ -14,6 +14,7 @@ def mat_to_json(mat, scn, layers):
         # We'll disable "this layer only" lights,
         # and restore them all unconditionally
         lamps = []
+        ramps = {}
         try:
             # TODO: optimize making a list of lamps per layer?
             # TODO: update scene only when necessary?
@@ -39,6 +40,7 @@ def mat_to_json(mat, scn, layers):
         # NodeTreeShaderGenerator uses platform-agnostic data
         # so we convert the tree and the lamps
         tree = mat_nodes.export_nodes_of_material(mat)
+        ramps = tree['ramps']
         lamps = []
         for ob in scn.objects:
             if ob.type == 'LAMP' and ob.data:
@@ -64,7 +66,8 @@ def mat_to_json(mat, scn, layers):
             material_type=material_type,
             fragment=code,
             uniforms=uniforms,
-            varyings=varyings
+            varyings=varyings,
+            ramps=ramps, # To be removed and converted to textures in exporter.py
         )
 
 
