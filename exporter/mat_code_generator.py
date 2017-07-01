@@ -878,7 +878,6 @@ class NodeTreeShaderGenerator:
         return code, dict(Quadratic=q, Linear=l, Constant=c)
 
     def curve_rgb(self, invars, props):
-        pprint(props)
         ramp = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['ramp_name']))
         out = self.tmp('color4')
         code = "curves_rgb({}, {}, {}, {});".format(
@@ -887,3 +886,121 @@ class NodeTreeShaderGenerator:
             ramp(),
             out())
         return code, dict(Color=out)
+
+    ## Vector nodes
+
+    def bump(self, invars, props):
+        normal = invars['Normal'].to_vec3()
+        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.facingnormal()()
+        out = self.tmp('vec3')
+        code = "node_bump({}, {}, {}, {}, {}, {}, {});".format(
+            invars['Strength'].to_float(),
+            invars['Distance'].to_float(),
+            invars['Height'].to_float(),
+            normal,
+            self.view_position()(),
+            str(float(props['invert'])),
+            out())
+        return code, dict(Normal=out)
+
+    def mapping(self, invars, props):
+        # TODO: Portable version
+        from mathutils import Matrix
+        tra = Matrix.Translation(props['translation'])
+        rot = props['rotation'].to_matrix().to_4x4()
+        scl = Matrix()
+        scl[0][0], scl[1][1], scl[2][2] = props['scale']
+        mat = tra * rot * scl
+        mat_tuple = tuple(sum(map(list,mat.transposed()),[]))
+        out = self.tmp('vec3')
+        code = "mapping({}, mat4{}, vec3{}, vec3{}, {}, {}, {});".format(
+            invars['Vector'].to_vec3(),
+            mat_tuple,
+            tuple(props['min']),
+            tuple(props['max']),
+            float(props['use_min']),
+            float(props['use_max']),
+            out())
+        return code, dict(Vector=out)
+
+    def normal(self, invars, props):
+        outnor = self.tmp('vec3')
+        outdot = self.tmp('float')
+        code = "normal_new_shading({}, vec3{}, {}, {});".format(
+            invars['Normal'].to_vec3(),
+            tuple(props['normal']),
+            outnor(), outdot())
+        return code, dict(Normal=outnor, Dot=outdot)
+
+    def normal_map(self, invars, props):
+        # TODO OPTIMIZE: Avoid vec_math_mix if strength is always 1
+        color0 = invars['Color'].to_vec3()
+        # TODO: Should we reuse temp normals?
+        nor0 = self.tmp('vec3')()
+        nor1 = self.tmp('vec3')()
+
+        out = self.tmp('vec3')
+        space = props['space']
+        blender_normal = ''
+        if space.startswith('BLENDER'):
+            blender_normal = 'blender_'
+            space = space[8:]
+
+        if space == 'TANGENT':
+            nor2 = self.tmp('vec3')()
+            nor3 = self.tmp('vec3')()
+            code = [
+                "color_to_{}normal_new_shading({}, {});".format(
+                    blender_normal, color0, nor0),
+                "node_normal_map({}, {}, {}, {});".format(
+                    self.attr_tangent(props['uv_map'])(),
+                    self.facingnormal()(),
+                    nor0, nor1),
+                "vec_math_mix(max(0.0, {}), {}, {}, {});".format(
+                    invars['Strength'].to_float(),
+                    nor1,
+                    self.facingnormal()(),
+                    nor2),
+                "direction_transform_m4v3({}, {}, {});".format(
+                    nor2,
+                    self.view_matrix_inverse()(),
+                    nor3),
+                "{} = normalize({});".format(out(), nor3),
+            ]
+        elif space == 'WORLD':
+            code = [
+                "color_to_{}normal_new_shading({}, {});".format(
+                    blender_normal, color0, nor0),
+                "vec_math_mix(max(0.0, {}), {}, {}, {});".format(
+                    invars['Strength'].to_float(),
+                    nor0,
+                    self.view2world_v3(self.facingnormal())(),
+                    nor1),
+                "{} = normalize({});".format(out(), nor1),
+            ]
+        elif space == 'OBJECT':
+            nor2 = self.tmp('vec3')()
+            code = [
+                "color_to_{}normal_new_shading({}, {});".format(
+                    blender_normal, color0, nor0),
+                "direction_transform_m4v3({}, {}, {});".format(
+                    nor0, self.object_matrix()(), nor1),
+                "vec_math_mix(max(0.0, {}), {}, {}, {});".format(
+                    invars['Strength'].to_float(),
+                    nor1,
+                    self.view2world_v3(self.facingnormal())(),
+                    nor2),
+                "{} = normalize({});".format(out(), nor2),
+            ]
+        return '\n    '.join(code), dict(Normal=out)
+
+    def curve_vec(self, invars, props):
+        ramp = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['ramp_name']))
+        out = self.tmp('vec3')
+        code = "curves_vec({}, {}, {}, {});".format(
+            invars['Fac'].to_float(),
+            invars['Vector'].to_vec3(),
+            ramp(),
+            out())
+        return code, dict(Vector=out)

@@ -115,6 +115,10 @@ def search_scene_used_data(scene):
                 if n.direction_type == 'UV_MAP':
                     # TODO: Specify which UV map is the tangent based on!
                     use_normal_map = True
+            elif n.bl_idname == 'ShaderNodeNormalMap':
+                if n.space == 'TANGENT':
+                    # TODO: Specify which UV map is the tangent based on!
+                    use_normal_map = True
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
                     search_in_node_tree(n.node_tree, layers, i+1)

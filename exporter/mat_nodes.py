@@ -26,10 +26,10 @@ def get_rgba_curve_hash(mapping, ramps):
     r,g,b,a = mapping.curves
     for i in range(RAMP_SIZE):
         i4 = i<<2
-        arr[i4] = round(r.evaluate(pos)*255)
-        arr[i4+1] = round(g.evaluate(pos)*255)
-        arr[i4+2] = round(b.evaluate(pos)*255)
-        arr[i4+3] = round(a.evaluate(pos)*255)
+        arr[i4] = max(0, min(255, round(r.evaluate(pos)*255)))
+        arr[i4+1] = max(0, min(255, round(g.evaluate(pos)*255)))
+        arr[i4+2] = max(0, min(255, round(b.evaluate(pos)*255)))
+        arr[i4+3] = max(0, min(255, round(a.evaluate(pos)*255)))
         pos += pixel
     ramp_hash = str(hash(arr.tobytes()))
     if ramp_hash not in ramps:
@@ -37,6 +37,7 @@ def get_rgba_curve_hash(mapping, ramps):
     return ramp_hash
 
 def get_xyz_curve_hash(mapping, ramps):
+    # TODO: I think this is wrong because negative values are not represented
     mapping.initialize()
     arr = array('B', [0]*RAMP_SIZE*4)
     pixel = 1/RAMP_SIZE
@@ -44,11 +45,12 @@ def get_xyz_curve_hash(mapping, ramps):
     x,y,z = mapping.curves
     for i in range(RAMP_SIZE):
         i4 = i<<2
-        arr[i4] = round(r.evaluate(pos)*255)
-        arr[i4+1] = round(g.evaluate(pos)*255)
-        arr[i4+2] = round(b.evaluate(pos)*255)
+        pos2 = (pos)*2.0 - 1.0
+        arr[i4] = max(0, min(255, round(((x.evaluate(pos2)))*255)))
+        arr[i4+1] = max(0, min(255, round(((y.evaluate(pos2)))*255)))
+        arr[i4+2] = max(0, min(255, round(((z.evaluate(pos2)))*255)))
         pos += pixel
-    ramp_hash = hash(arr.tobytes())
+    ramp_hash = str(hash(arr.tobytes()))
     if ramp_hash not in ramps:
         ramps[ramp_hash] = arr.tolist() # json-compatible
     return ramp_hash
@@ -115,6 +117,8 @@ def export_node(node, ramps):
         out_props['ramp_name'] = get_rgba_curve_hash(node.mapping, ramps)
     elif node.type == 'CURVE_VEC':
         out_props['ramp_name'] = get_xyz_curve_hash(node.mapping, ramps)
+    elif node.type == 'NORMAL':
+        out['properties'] = {'normal': list(node.outputs['Normal'].default_value)}
     pprint(out)
     return out
 
