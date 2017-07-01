@@ -228,6 +228,9 @@ class NodeTreeShaderGenerator:
     def model_view_matrix(self):
         return self.uniform(dict(type='OB_VIEW_MAT', datatype='mat4'))
 
+    def model_view_matrix_inverse(self):
+        return self.uniform(dict(type='OB_VIEW_IMAT', datatype='mat4'))
+
     def view_matrix(self):
         return self.uniform(dict(type='VIEW_MAT', datatype='mat4'))
 
@@ -905,13 +908,26 @@ class NodeTreeShaderGenerator:
         return code, dict(Normal=out)
 
     def mapping(self, invars, props):
+        # vector_type possibilities:
+        # * point has all transformations the normal way
+        # * vector doesn't use location
+        # * normal is like vector but has inverse scale
+        # * texture is just the inverse of point
         # TODO: Portable version
         from mathutils import Matrix
-        tra = Matrix.Translation(props['translation'])
+        vector_type = props['vector_type']
+        if vector_type not in ('VECTOR', 'NORMAL'):
+            tra = Matrix.Translation(props['translation'])
+        else:
+            tra = Matrix()
         rot = props['rotation'].to_matrix().to_4x4()
         scl = Matrix()
         scl[0][0], scl[1][1], scl[2][2] = props['scale']
+        if vector_type == 'NORMAL':
+            scl.invert()
         mat = tra * rot * scl
+        if vector_type == 'TEXTURE':
+            mat.invert()
         mat_tuple = tuple(sum(map(list,mat.transposed()),[]))
         out = self.tmp('vec3')
         code = "mapping({}, mat4{}, vec3{}, vec3{}, {}, {}, {});".format(
@@ -996,6 +1012,7 @@ class NodeTreeShaderGenerator:
         return '\n    '.join(code), dict(Normal=out)
 
     def curve_vec(self, invars, props):
+        # TODO: I think this is wrong because negative values are not represented
         ramp = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['ramp_name']))
         out = self.tmp('vec3')
         code = "curves_vec({}, {}, {}, {});".format(
@@ -1004,3 +1021,35 @@ class NodeTreeShaderGenerator:
             ramp(),
             out())
         return code, dict(Vector=out)
+
+    def vect_transform(self, invars, props):
+        # TODO: Point mode yields different results for some reason
+        invar = invars['Vector']
+        combo = props['convert_from'] + '_' + props['convert_to']
+        if combo == 'OBJECT_WORLD': mat = self.object_matrix()()
+        elif combo == 'WORLD_OBJECT': mat = self.object_matrix_inverse()()
+        elif combo == 'WORLD_CAMERA': mat = self.view_matrix()()
+        elif combo == 'CAMERA_WORLD': mat = self.view_matrix_inverse()()
+        elif combo == 'OBJECT_CAMERA': mat = self.model_view_matrix()()
+        elif combo == 'CAMERA_OBJECT': mat = self.model_view_matrix_inverse()()
+        else: # Both are the same, don't do anything
+            return '', dict(Vector=invar)
+        transform_type = 'point' if props['vector_type'] == 'POINT' else 'direction'
+        # TODO: Always emit code and make this much cleaner!
+        code = []
+        trans_in = invar
+        if props['convert_from'] == 'CAMERA':
+            trans_in = self.tmp('vec3')
+            code.append("invert_z({}, {});".format(invar.to_vec3(), trans_in()))
+        trans_out = self.tmp('vec3')
+        code.append("{}_transform_m4v3({}, {}, {});".format(
+            transform_type, trans_in.to_vec3(), mat, trans_out()))
+        out = trans_out
+        if props['convert_to'] == 'CAMERA':
+            out = self.tmp('vec3')
+            code.append("invert_z({}, {});".format(trans_out(), out()))
+        nor_out = out
+        if props['vector_type'] == 'NORMAL':
+            nor_out = self.tmp('vec3')
+            code.append("{} = normalize({});".format(nor_out(), out()))
+        return '\n    '.join(code), dict(Vector=nor_out)
