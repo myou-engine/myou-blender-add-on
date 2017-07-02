@@ -106,6 +106,9 @@ class SelectExportPath(bpy.types.Operator):
         # TODO: In all cases, make loop that sends window to front until process
         # has finished
         current = bpy.path.abspath(bpy.context.scene.myou_export_folder) or bpy.path.abspath('//')
+        current = os.path.abspath(current)
+        if not os.path.exists(current):
+            current = ''
         if os.name == 'nt':
             from . import winutils
             path = subprocess.Popen(
