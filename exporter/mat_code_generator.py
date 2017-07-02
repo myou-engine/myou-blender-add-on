@@ -479,61 +479,6 @@ class NodeTreeShaderGenerator:
         outputs = dict()
         return code, outputs
 
-    math_ops = {
-        'ADD': "{0} = {1}+{2};",
-        'SUBTRACT': "{0} = {1}-{2};",
-        'MULTIPLY': "{0} = {1}*{2};",
-        'DIVIDE': "math_divide({1},{2},{0});",
-        'SINE': "{0} = sin({1});",
-        'COSINE': "{0} = cos({1});",
-        'TANGENT': "{0} = tan({1});",
-        'ARCSINE': "math_asin({1},{0});",
-        'ARCCOSINE': "math_acos({1},{0});",
-        'ARCTANGENT': "{0} = atan({1});",
-        'POWER': "math_pow({1}, {2}, {0});",
-        'LOGARITHM': "math_log({1}, {2}, {0});",
-        'MINIMUM': "{0} = min({1}, {2});",
-        'MAXIMUM': "{0} = max({1}, {2});",
-        'ROUND': "{0} = floor({1}+0.5);",
-        'LESS_THAN': "math_less_than({1},{2},{0});",
-        'GREATER_THAN': "math_greater_than({1},{2},{0});",
-        'MODULO': "math_modulo({1},{2},{0});",
-        'ABSOLUTE': "{0} = abs({1});",
-    }
-
-    def math(self, invars, props):
-        in1 = invars['Value'].to_float()
-        in2 = invars['Value$1'].to_float()
-        out = self.tmp('float')
-        code = self.math_ops[props['operation']].format(out(), in1, in2)
-        outputs = dict(Value=out)
-        return code, outputs
-
-    def combrgb(self, invars, props):
-        r = invars['R'].to_float()
-        g = invars['G'].to_float()
-        b = invars['B'].to_float()
-        out = self.tmp('color4')
-        code = "combine_rgb({}, {}, {}, {});".format(r, g, b, out())
-        outputs = dict(Image=out)
-        return code, outputs
-
-    def combxyz(self, invars, props):
-        x = invars['X'].to_float()
-        y = invars['Y'].to_float()
-        z = invars['Z'].to_float()
-        out = self.tmp('vec3')
-        code = "combine_xyz({}, {}, {}, {});".format(x, y, z, out())
-        outputs = dict(Vector=out)
-        return code, outputs
-
-    def sepxyz(self, invars, props):
-        v = invars['Vector'].to_vec3();
-        x = Variable("({}).x".format(v), 'float')
-        y = Variable("({}).y".format(v), 'float')
-        z = Variable("({}).z".format(v), 'float')
-        return '', dict(X=x, Y=y, Z=z)
-
     BLEND_TYPES = {
         'MIX': 'blend',
         'ADD': 'add',
@@ -626,6 +571,8 @@ class NodeTreeShaderGenerator:
         out = self.tmp('color4')
         code = "node_background({}, {}, vec3(0.0), {});".format(color, strength, out())
         return code, {'Background': out}
+
+    ## Shader nodes
 
     def bsdf_anisotropic(self, invars, props):
         color0 = invars['Color'].to_color4()
@@ -1053,3 +1000,137 @@ class NodeTreeShaderGenerator:
             nor_out = self.tmp('vec3')
             code.append("{} = normalize({});".format(nor_out(), out()))
         return '\n    '.join(code), dict(Vector=nor_out)
+
+    ## Converter nodes
+
+    def blackbody(self, invars, props):
+        out = self.tmp('color4')
+        code = "node_blackbody({}, {});".format(
+            invars['Temperature'].to_float(),
+            out())
+        return code, dict(Color=out)
+
+    def valtorgb(self, invars, props): # A.K.A. Color ramp
+        ramp = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['ramp_name']))
+        out = self.tmp('color4')
+        out_alpha = self.tmp('float')
+        code = "valtorgb({}, {}, {}, {});".format(
+            invars['Fac'].to_float(),
+            ramp(),
+            out(), out_alpha())
+        return code, dict(Color=out, Alpha=out_alpha)
+
+    def combhsv(self, invars, props):
+        out = self.tmp('color4')
+        code = "combine_hsv({}, {}, {}, {});".format(
+            invars['H'].to_float(),
+            invars['S'].to_float(),
+            invars['V'].to_float(),
+            out())
+        return code, dict(Color=out)
+
+    def combrgb(self, invars, props):
+        r = invars['R'].to_float()
+        g = invars['G'].to_float()
+        b = invars['B'].to_float()
+        out = self.tmp('color4')
+        code = "combine_rgb({}, {}, {}, {});".format(r, g, b, out())
+        outputs = dict(Image=out)
+        return code, outputs
+
+    def combxyz(self, invars, props):
+        x = invars['X'].to_float()
+        y = invars['Y'].to_float()
+        z = invars['Z'].to_float()
+        out = self.tmp('vec3')
+        code = "combine_xyz({}, {}, {}, {});".format(x, y, z, out())
+        outputs = dict(Vector=out)
+        return code, outputs
+
+    math_ops = {
+        'ADD': "{0} = {1}+{2};",
+        'SUBTRACT': "{0} = {1}-{2};",
+        'MULTIPLY': "{0} = {1}*{2};",
+        'DIVIDE': "math_divide({1},{2},{0});",
+        'SINE': "{0} = sin({1});",
+        'COSINE': "{0} = cos({1});",
+        'TANGENT': "{0} = tan({1});",
+        'ARCSINE': "math_asin({1},{0});",
+        'ARCCOSINE': "math_acos({1},{0});",
+        'ARCTANGENT': "{0} = atan({1});",
+        'POWER': "math_pow({1}, {2}, {0});",
+        'LOGARITHM': "math_log({1}, {2}, {0});",
+        'MINIMUM': "{0} = min({1}, {2});",
+        'MAXIMUM': "{0} = max({1}, {2});",
+        'ROUND': "{0} = floor({1}+0.5);",
+        'LESS_THAN': "math_less_than({1},{2},{0});",
+        'GREATER_THAN': "math_greater_than({1},{2},{0});",
+        'MODULO': "math_modulo({1},{2},{0});",
+        'ABSOLUTE': "{0} = abs({1});",
+    }
+
+    def math(self, invars, props):
+        in1 = invars['Value'].to_float()
+        in2 = invars['Value$1'].to_float()
+        out = self.tmp('float')
+        code = self.math_ops[props['operation']].format(out(), in1, in2)
+        outputs = dict(Value=out)
+        return code, outputs
+
+    def rgbtobw(self, invars, props):
+        out = self.tmp('float')
+        code = "rgbtobw({}, {});".format(
+            invars['Color'].to_color4(),
+            out())
+        return code, dict(Val=out)
+
+    def sephsv(self, invars, props):
+        h = self.tmp('float')
+        s = self.tmp('float')
+        v = self.tmp('float')
+        code = "separate_hsv({}, {}, {}, {});".format(
+            invars['Color'].to_color4(),
+            h(), s(), v())
+        return code, dict(H=h, S=s, V=v)
+
+    def seprgb(self, invars, props):
+        v = invars['Vector'].to_color4();
+        r = Variable("({}).r".format(v), 'float')
+        g = Variable("({}).g".format(v), 'float')
+        b = Variable("({}).b".format(v), 'float')
+        return '', dict(R=r, G=g, B=b)
+
+    def sepxyz(self, invars, props):
+        v = invars['Vector'].to_vec3();
+        x = Variable("({}).x".format(v), 'float')
+        y = Variable("({}).y".format(v), 'float')
+        z = Variable("({}).z".format(v), 'float')
+        return '', dict(X=x, Y=y, Z=z)
+
+    vec_math_ops = {
+        'ADD': "vec_math_add({}, {}, {}, {});",
+        'SUBTRACT': "vec_math_sub({}, {}, {}, {});",
+        'AVERAGE': "vec_math_average({}, {}, {}, {});",
+        'DOT_PRODUCT': "vec_math_dot({}, {}, {}, {});",
+        'CROSS_PRODUCT': "vec_math_cross({}, {}, {}, {});",
+        'NORMALIZE': "vec_math_normalize({0}, {2}, {3});",
+    }
+
+    def vect_math(self, invars, props):
+        in1 = invars['Vector'].to_vec3()
+        in2 = invars['Vector$1'].to_vec3()
+        out = self.tmp('vec3')
+        val = self.tmp('float')
+        code = self.vec_math_ops[props['operation']].format(in1, in2, out(), val())
+        outputs = dict(Vector=out, Value=val)
+        return code, outputs
+
+    def wavelength(self, invars, props):
+        # TODO: Not working:
+        # GLSL error: Index expression must be constant
+        # Convert the table to a ramp!
+        out = self.tmp('color4')
+        code = "node_wavelength({}, {});".format(
+            invars['Wavelength'].to_float(),
+            out())
+        return code, dict(Color=out)

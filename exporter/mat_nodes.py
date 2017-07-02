@@ -55,6 +55,22 @@ def get_xyz_curve_hash(mapping, ramps):
         ramps[ramp_hash] = arr.tolist() # json-compatible
     return ramp_hash
 
+def get_ramp_hash(ramp, ramps):
+    arr = array('B', [0]*RAMP_SIZE*4)
+    pixel = 1/RAMP_SIZE
+    pos = pixel*0.5
+    for i in range(RAMP_SIZE):
+        i4 = i<<2
+        r,g,b,a = ramp.evaluate(pos)
+        arr[i4] = max(0, min(255, round(r*255)))
+        arr[i4+1] = max(0, min(255, round(g*255)))
+        arr[i4+2] = max(0, min(255, round(b*255)))
+        arr[i4+3] = max(0, min(255, round(a*255)))
+        pos += pixel
+    ramp_hash = str(hash(arr.tobytes()))
+    if ramp_hash not in ramps:
+        ramps[ramp_hash] = arr.tolist() # json-compatible
+    return ramp_hash
 
 
 def unique_socket_name(socket):
@@ -117,6 +133,8 @@ def export_node(node, ramps):
         out_props['ramp_name'] = get_rgba_curve_hash(node.mapping, ramps)
     elif node.type == 'CURVE_VEC':
         out_props['ramp_name'] = get_xyz_curve_hash(node.mapping, ramps)
+    elif node.type == 'VALTORGB': # A.K.A. Color ramp
+        out_props['ramp_name'] = get_ramp_hash(node.color_ramp, ramps)
     elif node.type == 'NORMAL':
         out['properties'] = {'normal': list(node.outputs['Normal'].default_value)}
     pprint(out)
