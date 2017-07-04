@@ -558,6 +558,37 @@ class NodeTreeShaderGenerator:
             code = ''
         return code, dict(Color=out)
 
+    def tex_noise(self, invars, props):
+        # NOTE: It doesn't work
+        co = invars['Vector']
+        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            co = self.orco()
+        out = self.tmp('color4')
+        fac = self.tmp('float')
+        code = "node_tex_noise({}, {}, {}, {}, {}, {});".format(
+            co(),
+            invars['Scale'].to_float(),
+            invars['Detail'].to_float(),
+            invars['Distortion'].to_float(),
+            out(), fac())
+        return code, dict(Color=out, Fac=fac)
+
+    def tex_checker(self, invars, props):
+        co = invars['Vector']
+        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            co = self.orco()
+        out = self.tmp('color4')
+        fac = self.tmp('float')
+        code = "node_tex_checker({}, {}, {}, {}, {}, {});".format(
+            co(),
+            invars['Color1'].to_color4(),
+            invars['Color2'].to_color4(),
+            invars['Scale'].to_float(),
+            out(), fac())
+        return code, dict(Color=out, Fac=fac)
+
+
+
     def emission(self, invars, props):
         color = invars['Color'].to_color4()
         strength = invars['Strength'].to_float()
@@ -627,7 +658,7 @@ class NodeTreeShaderGenerator:
     def bsdf_toon(self, invars, props):
         color0 = invars['Color'].to_color4()
         normal = invars['Normal'].to_vec3()
-        return self.bsdf_opaque('toon_diffuse', color0, normal,
+        return self.bsdf_opaque('toon_'+props['component'].lower(), color0, normal,
             toon_size=invars['Size'].to_float(),
             toon_smooth=invars['Smooth'].to_float())
 

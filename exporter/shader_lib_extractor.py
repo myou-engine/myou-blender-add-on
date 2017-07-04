@@ -121,6 +121,19 @@ replacements = [
 
     # Same name of variable and function doesn't work in ANGLE
     (re.compile(r'disk_energy(?!\()', flags=re.DOTALL), r'd_energy'),
+
+    # Avoid using ints in WebGL 1, it seems they don't quite work well
+    ('int xi = int(abs(floor(p.x)));', '''
+    float xi = (abs(floor(p.x)));
+	float yi = (abs(floor(p.y)));
+	float zi = (abs(floor(p.z)));
+	bool check = ((mod(xi, 2.0) == mod(yi, 2.0)) == bool(mod(zi, 2.0)));
+	color = check ? color1 : color2;
+	fac = check ? 1.0 : 0.0;
+    }
+    void original_checker(vec3 p, vec4 color1, vec4 color2, float scale, out vec4 color, out float fac){
+    int xi;
+    '''),
 ]
 
 argument_replacements = [
