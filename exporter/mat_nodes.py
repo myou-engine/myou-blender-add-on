@@ -149,7 +149,7 @@ def export_nodes_of_group(node_tree, ramps):
             output_node = node
     for node in node_tree.nodes:
         if node.type != 'REROUTE':
-            nodes[node.name] = export_node(node)
+            nodes[node.name] = export_node(node, ramps)
     tree = {'nodes': nodes, 'output_node_name': output_node.name if output_node else ''}
     return tree
 

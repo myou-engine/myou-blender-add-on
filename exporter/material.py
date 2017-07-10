@@ -14,7 +14,6 @@ def mat_to_json(mat, scn, layers):
         # We'll disable "this layer only" lights,
         # and restore them all unconditionally
         lamps = []
-        ramps = {}
         try:
             # TODO: optimize making a list of lamps per layer?
             # TODO: update scene only when necessary?
@@ -32,6 +31,7 @@ def mat_to_json(mat, scn, layers):
             for lamp, use_diffuse, use_specular in lamps:
                 lamp.use_diffuse = use_diffuse
                 lamp.use_specular = use_specular
+        r['ramps'] = {}
         return r
     else:
         set_shader_lib('', mat, scn)
