@@ -86,6 +86,8 @@ replacements = [
 
     # Cannot do dynamic loops
     ('uniform vec2 unfbsdfsamples;', ''),
+    ('for (float i = 0.0; i < unfbsdfsamples.x; i++) {',
+    'float i; for (int iii = 0; iii < 32; iii++) { i = float(iii);'),
     ('unfbsdfsamples.x', 32.0),
     ('unfbsdfsamples.y', 1/32.0),
 
@@ -134,11 +136,40 @@ replacements = [
     void original_checker(vec3 p, vec4 color1, vec4 color2, float scale, out vec4 color, out float fac){
     int xi;
     '''),
+    # Use Uint8 textures instead of float
+    # ('ivec2 texel = ivec2(mod(fragcoord.x, NOISE_SIZE), mod(fragcoord.y, NOISE_SIZE));',
+    # 'vec2 texel = floor(vec2(mod(fragcoord.x, 64.0), mod(fragcoord.y, 64.0)));'),
+    # ('int u = int(mod(i + jitternoise.y * BSDF_SAMPLES, BSDF_SAMPLES));',
+    # 'float u = floor(mod(i + jitternoise.y * 1024.0, 1024.0));'),
+    ('texture2DLodEXT(unfjitter, (vec2(texel) + 0.5) / float(NOISE_SIZE), 0.0).rg',
+    '(texture2DLodEXT(unfjitter, (vec2(texel) + 0.5) / 64.0, 0.0).rg-vec2(0.5))*2.0'),
+    ('texture2DLodEXT(unflutsamples, vec2((float(u) + 0.5) / float(BSDF_SAMPLES), 0.5), 0.0).rg',
+    '(texture2DLodEXT(unflutsamples, vec2((float(u) + 0.5) / 1024.0, 0.0), 0.0).rg-0.5)*2.0'),
+
+    # Not sure why, noise doesn't work properly when BSDF_SAMPLES is too big here
+    ('int u = int(mod(i + jitternoise.y * BSDF_SAMPLES, BSDF_SAMPLES));',
+    'int u = int(mod(i + jitternoise.y * 64.0, 64.0));'),
+
+    # ('setup_noise(gl_FragCoord.xy);', ''),
+
+    # glsl-man parser limitations:
+    # number literal suffixes
+    # (this may not be a bug but actually GLSL ES not supporting them)
+    (re.compile(r'\b([\d.]+)(u|f)\b', flags=re.DOTALL), r'\1'),
+    # preprocessor in the middle of statements
+    # TODO: rewrite it better so we can use backface
+    ('#ifdef USE_BACKFACE\n'
+    '			 && backface_depth_linear(ivec2(co.xy), 0) < ray.z + viewpos.z\n'
+    '#endif\n', ''),
 ]
 
 argument_replacements = [
     ('sampler2DShadow','sampler2D'),
 ]
+
+alternate_bodies = {
+
+}
 
 # Make sure \r are removed before calling this
 def do_lib_replacements(lib):
@@ -152,17 +183,23 @@ def do_lib_replacements(lib):
         function_parts[4::4], # body and after body
     ))
     functions = []
+    patched_bodies = []
     for rtype, name, args, body in function_parts:
-        reps = []
-        for a,b in replacements:
-            if isinstance(a,str):
-                new_body = body.replace(a,str(b))
-            else:
-                new_body = a.sub(str(b), body)
-                a = str(a)
-            if new_body != body:
-                reps.append(a)
-                body = new_body
+        # reps = []
+        if name in alternate_bodies and name not in patched_bodies:
+            body = '{'+alternate_bodies[name]+'}'
+            # patch only the first version of overloaded functions
+            patched_bodies.append(name)
+        else:
+            for a,b in replacements:
+                if isinstance(a,str):
+                    new_body = body.replace(a,str(b))
+                else:
+                    new_body = a.sub(str(b), body)
+                    a = str(a)
+                if new_body != body:
+                    # reps.append(a)
+                    body = new_body
         #if reps:
             #print("Function {} has replacements for:\n    {}".format(
                 #name or 'preamble', '\n    '.join(reps)))
@@ -205,6 +242,8 @@ vec4 textureCubeLodEXT(samplerCube t, vec3 c, float level){
 #define CORRECTION_NONE""" \
         +uniforms+(parts[0]+'}').replace('\r','')+'\n'
         SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
+        # This section below is necessary because something is interpreted as non ascii for some reason
+        # despite the line above (which is also necessary, mysteriously...)
         splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
         if len(splits) == 3:
             a,b,c = splits
