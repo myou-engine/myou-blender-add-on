@@ -1,4 +1,8 @@
 
+###
+### This module converts a Material node tree into a JSON compatible
+### representation to make it easy to export and use anywhere
+###
 
 import json
 from pprint import *
@@ -138,7 +142,7 @@ def export_node(node, ramps):
     if node.type == 'GROUP':
         # we're embedding the group for now
         # (the better way is to have each group converted once)
-        out['node_tree'] = export_nodes_of_group(node.node_tree, ramps)
+        out_props['node_tree'] = export_nodes_of_group(node.node_tree, ramps)
     elif node.type == 'CURVE_RGB':
         out_props['ramp_name'] = get_rgba_curve_hash(node.mapping, ramps)
     elif node.type == 'CURVE_VEC':
@@ -160,7 +164,8 @@ def export_nodes_of_group(node_tree, ramps):
     for node in node_tree.nodes:
         if node.type != 'REROUTE':
             nodes[node.name] = export_node(node, ramps)
-    tree = {'nodes': nodes, 'output_node_name': output_node.name if output_node else ''}
+    tree = {'nodes': nodes, 'output_node_name': output_node.name if output_node else '',
+            'group_name': node_tree.name,}
     return tree
 
 def export_nodes_of_material(mat): # NOTE: mat can also be a world

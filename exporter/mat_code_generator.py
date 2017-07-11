@@ -1,4 +1,17 @@
 
+###
+### This module takes the nodes generated from
+### mat_nodes.py and generates GLSL ES code.
+### This module is designed to be ported to other
+### languages, so it avoids using blender classes.
+###
+### TODO: Improve code to always emit explicitely with cache,
+###       instead of the mess of returning code sometimes.
+### TODO: Improve variables to use __str__/toString instead of __call__?
+### TODO: have global vec2/3/4 etc that does the conversion instead of
+###       to_vec2 etc?
+### TODO: Separate node types into several files and join them by multiple inheritance?
+###
 
 import json
 from pprint import *
@@ -68,28 +81,51 @@ class Variable:
 
 class NodeTreeShaderGenerator:
 
-    def __init__(self, tree, lamps):
+    def __init__(self, tree, lamps, parent_tree=None, parent_inputs=None):
         # Format of tree:
         # defined in mat_nodes.py
         # Format of lamps:
         # [{name: ob.name, lamp_type: ob.data.type}, ...]
         # TODO: Shadow configuration etc
         self.is_background = tree.get('is_background', False)
-        self.node_cache = {}
         self.tree = tree
         self.lamps = lamps
-        self.code = []
-        self.tmp_index = 1
-        self.tmp_vars = []
-        self.op_cache = {}
-        self.uniforms = OrderedDict()
-        self.varyings = OrderedDict()
-        print("EXPORTING MATERIAL",tree['material_name'])
+        if parent_tree:
+            # GROUP
+            self.node_cache = parent_tree.node_cache
+            self.code = parent_tree.code
+            self.tmp_vars = parent_tree.tmp_vars
+            self.op_cache = parent_tree.op_cache
+            self.uniforms = parent_tree.uniforms
+            self.varyings = parent_tree.varyings
+            self.parent_tree = parent_tree
+            self.parent_inputs = parent_inputs
+        else:
+            # MATERIAL
+            self.node_cache = {}
+            self.code = []
+            self.tmp_vars = []
+            self.op_cache = {}
+            self.uniforms = OrderedDict()
+            self.varyings = OrderedDict()
+            self.parent_tree = None
+            self.parent_inputs = None
+            # This is not called manually and must generate code, uniforms, etc
+            self.get_output_node()
+
+    def get_output_node(self):
+        tree = self.tree
+        if self.parent_tree:
+            name = 'group '+tree['group_name']
+        else:
+            name = 'material '+tree['material_name']
+        print("EXPORTING "+name)
         if 'output_node_name' in tree:
             output_node = tree['nodes'][tree['output_node_name']]
-            outs = self.get_outputs(output_node)
+            return self.get_outputs(output_node)
         else:
-            print('Warning: No output in material', tree['material_name'])
+            print('Warning: No output in '+name)
+            return {}
 
     def get_code(self):
         varyings = ['varying {} {};'.format(v.glsl_type(), v())
@@ -142,7 +178,7 @@ class NodeTreeShaderGenerator:
                 invars[name] = self.get_outputs(linked_node)[input['link']['socket']]
             else:
                 invars[name] = Variable('(0.0)', 'float')
-        pprint(node['inputs'])
+        pprint(node)
         if not hasattr(self, node['type'].lower()):
             pprint(node)
             raise Exception("Code for node {} not found".format(node['type']))
@@ -161,7 +197,7 @@ class NodeTreeShaderGenerator:
 
     def tmp(self, type):
         suffix = ''
-        t = self.tmp_index
+        t = len(self.tmp_vars)
         suffix = self.tmp_chars[t%len(self.tmp_chars)]
         while t >= len(self.tmp_chars):
             t //= len(self.tmp_chars)
@@ -169,7 +205,6 @@ class NodeTreeShaderGenerator:
         name = type+'_'+suffix
         v = Variable(name, type)
         self.tmp_vars.append(v.glsl_type()+' '+name+';')
-        self.tmp_index += 1
         return v
 
     ## Varyings ##
@@ -1160,3 +1195,16 @@ class NodeTreeShaderGenerator:
             invars['Wavelength'].to_float(),
             out())
         return code, dict(Color=out)
+
+    ## Others
+
+    def group(self, invars, props):
+        tree_gen = NodeTreeShaderGenerator(
+            props['node_tree'], self.lamps, self, invars)
+        return '', tree_gen.get_output_node()
+
+    def group_input(self, invars, props):
+        return '', self.parent_inputs
+
+    def group_output(self, invars, props):
+        return '', invars
