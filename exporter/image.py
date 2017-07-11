@@ -146,10 +146,9 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
             for lod_level in lod_levels+[None]:
                 if path_exists or image.packed_file:
 
-                    if not astc_binary_checked:
-                        download_astc_tools_if_needed()
-
                     if scene.myou_export_ASTC:
+                        if not astc_binary_checked:
+                            download_astc_tools_if_needed()
                         file_name = image.name + '.astc'
                         exported_path = os.path.join(dest_path, file_name)
                         quality = 'veryfast' if scene.myou_export_tex_quality=='FAST' else 'exhaustive'
