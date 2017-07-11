@@ -1,4 +1,12 @@
- 
+
+from mathutils import Matrix
+def blender_matrix_to_gl(m):
+    t = m.transposed()
+    return list(t[0]) + list(t[1]) + list(t[2]) + list(t[3])
+
+def gl_matrix_to_blender(m):
+    return Matrix(m[0::4], m[1::4], m[2::4], m[3::4])
+
 def srgb_to_linearrgb(out, color):
     for i,c in enumerate(color):
         if c < 0.04045:

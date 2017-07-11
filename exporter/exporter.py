@@ -3,7 +3,7 @@ from .mesh import *
 from .material import *
 from .phy_mesh import *
 from . import image
-from .color import *
+from .util_convert import linearrgb_to_srgb
 
 from json import dumps, loads
 from collections import defaultdict

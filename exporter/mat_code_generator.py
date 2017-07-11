@@ -3,10 +3,7 @@
 import json
 from pprint import *
 from collections import OrderedDict
-
-# TODO:
-# * Node groups
-# * A lot of material nodes
+from .util_convert import gl_matrix_to_blender, blender_matrix_to_gl
 
 class Variable:
     def __init__(self, name, type):
@@ -891,14 +888,13 @@ class NodeTreeShaderGenerator:
         # * vector doesn't use location
         # * normal is like vector but has inverse scale
         # * texture is just the inverse of point
-        # TODO: Portable version
-        from mathutils import Matrix
+        from mathutils import Matrix, Euler
         vector_type = props['vector_type']
         if vector_type not in ('VECTOR', 'NORMAL'):
             tra = Matrix.Translation(props['translation'])
         else:
             tra = Matrix()
-        rot = props['rotation'].to_matrix().to_4x4()
+        rot = Euler(props['rotation']).to_matrix().to_4x4()
         scl = Matrix()
         scl[0][0], scl[1][1], scl[2][2] = props['scale']
         if vector_type == 'NORMAL':
@@ -906,11 +902,10 @@ class NodeTreeShaderGenerator:
         mat = tra * rot * scl
         if vector_type == 'TEXTURE':
             mat.invert()
-        mat_tuple = tuple(sum(map(list,mat.transposed()),[]))
         out = self.tmp('vec3')
         code = "mapping({}, mat4{}, vec3{}, vec3{}, {}, {}, {});".format(
             invars['Vector'].to_vec3(),
-            mat_tuple,
+            tuple(blender_matrix_to_gl(mat)),
             tuple(props['min']),
             tuple(props['max']),
             float(props['use_min']),

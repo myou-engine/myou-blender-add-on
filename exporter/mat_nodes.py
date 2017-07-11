@@ -3,6 +3,7 @@
 import json
 from pprint import *
 from array import array
+from .util_convert import blender_matrix_to_gl
 
 # To be overwritten by set(dir(output_node)) if present
 common_attributes = {'__doc__', '__module__', '__slots__', 'bl_description',
@@ -15,6 +16,14 @@ common_attributes = {'__doc__', '__module__', '__slots__', 'bl_description',
 'rna_type', 'select', 'shading_compatibility', 'show_options', 'show_preview',
 'show_texture', 'socket_value_update', 'type', 'update', 'use_custom_color',
 'width', 'width_hidden'}
+
+converter_functions = {
+    'Vector': list,
+    'Euler': list,
+    'Quaternion': list,
+    'Color': list,
+    'Matrix': blender_matrix_to_gl,
+}
 
 RAMP_SIZE = 256
 
@@ -113,16 +122,17 @@ def export_node(node, ramps):
     if properties:
         out_props = out['properties'] = {}
     for prop in properties-{'node_tree'}:
+        # Convert value to a JSON compatible type
         value = getattr(node, prop)
         value = getattr(value, 'name', value) # converts anything to its name
         if not isinstance(value, str) and hasattr(value, '__iter__'):
             value = list(value)
-        ## If it's still not JSONable, convert it
-        ## (not necessary yet since we're not exporting the tree for now)
-        #if hasattr(value, 'bl_rna'):
-            #converter_func = globals().get(value.__class__.__name__ + '2json')
-            #if converter_func:
-                #value = converter_func(value)
+        converter_func = converter_functions.get(value.__class__.__name__, None)
+        if converter_func:
+            value = converter_func(value)
+        if hasattr(value, 'bl_rna'):
+            print("Warning: No conversion possible for class",value.__class__.__name__)
+            value = None
         out_props[prop] = value
         #print(' ', prop, repr(value))
     if node.type == 'GROUP':
