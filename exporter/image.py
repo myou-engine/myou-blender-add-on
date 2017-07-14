@@ -13,6 +13,10 @@ type_to_ext = {'JPEG': 'jpg', 'TIFF': 'tif', 'TARGA': 'tga'}
 
 astc_binary_checked = False
 
+def previous_POT(x):
+    x = max(0, x)
+    return int(pow(2, floor(log(x)/log(2))))
+
 def save_image(image, path, new_format, resize=None):
     name = image.name
     if resize:
@@ -137,13 +141,21 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
         if lod_levels:
             print('image:', image.name, 'has lod_levels', lod_levels)
 
+        base_level = None
+        if scene.myou_ensure_pot_textures:
+            width, height = image.size
+            potw = previous_POT(width)
+            poth = previous_POT(height)
+            if potw != width or poth != height:
+                base_level = [potw, poth]
+
         if image.source == 'FILE':
             out_format = 'JPEG'
             out_ext = 'jpg'
             if uses_alpha:
                 out_format = 'PNG'
                 out_ext = 'png'
-            for lod_level in lod_levels+[None]:
+            for lod_level in lod_levels+[base_level]:
                 if path_exists or image.packed_file:
 
                     if scene.myou_export_ASTC:

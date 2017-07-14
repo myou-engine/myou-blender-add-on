@@ -35,6 +35,7 @@ class LayoutDemoPanel(bpy.types.Panel):
         layout.prop(scene, "myou_export_copy_files")
 
         layout.label(text="Encode textures:")
+        layout.prop(scene, "myou_ensure_pot_textures")
         layout.prop(scene, "myou_export_tex_quality", expand=True)
 
         split = layout.split(percentage=0.9, align=True)
@@ -339,6 +340,7 @@ def register():
     bpy.types.Scene.myou_export_name_as_blend = BoolProperty(default=True)
     bpy.types.Scene.myou_export_name = StringProperty()
     bpy.types.Scene.myou_export_copy_files = StringProperty(name='Copy extra files', description='Copy these files after export, relative to .blend file and separated by spaces')
+    bpy.types.Scene.myou_ensure_pot_textures = BoolProperty(name='Ensure textures are power of 2', default=True)
 
     @persistent
     def f(scene):
