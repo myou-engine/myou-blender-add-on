@@ -258,10 +258,12 @@ class NodeTreeShaderGenerator:
                                  varname='projection_matrix_inverse'))
 
     def model_view_matrix(self):
-        return self.uniform(dict(type='OB_VIEW_MAT', datatype='mat4'))
+        return self.uniform(dict(type='OB_VIEW_MAT', datatype='mat4',
+                                 varname='model_view_matrix'))
 
     def model_view_matrix_inverse(self):
-        return self.uniform(dict(type='OB_VIEW_IMAT', datatype='mat4'))
+        return self.uniform(dict(type='OB_VIEW_IMAT', datatype='mat4',
+                                 varname='model_view_matrix_inverse'))
 
     def view_matrix(self):
         return self.uniform(dict(type='VIEW_MAT', datatype='mat4'))
@@ -275,6 +277,7 @@ class NodeTreeShaderGenerator:
     def object_matrix_inverse(self):
         return self.uniform(dict(type='OB_IMAT', datatype='mat4'))
 
+    # TODO: Should we provide a "mat3(view_imat)" instead?
     def rotation_matrix_inverse(self):
         return self.uniform(dict(type='VIEW_IMAT3', datatype='mat3',
                                  varname='view_imat3'))
@@ -906,6 +909,7 @@ class NodeTreeShaderGenerator:
         normal = invars['Normal'].to_vec3()
         if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             normal = self.facingnormal()()
+        self.model_view_matrix_inverse() # ensure it's set up
         out = self.tmp('vec3')
         code = "node_bump({}, {}, {}, {}, {}, {}, {});".format(
             invars['Strength'].to_float(),

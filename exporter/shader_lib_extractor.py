@@ -3,6 +3,8 @@ import re
 
 uniforms = '''
 uniform mat3 view_imat3;
+uniform mat4 model_view_matrix;
+uniform mat4 model_view_matrix_inverse;
 uniform mat4 projection_matrix;
 uniform mat4 projection_matrix_inverse;
 '''
@@ -15,8 +17,8 @@ replacements = [
 #define BUMP_BICUBIC''',''),
     # matrices, some are used in mat_code_generator.py
     # and some are removed just so it compiles
-    ('gl_ModelViewMatrixInverse','mat4(1) /*mvmi*/'),
-    ('gl_ModelViewMatrix','mat4(1)'),
+    ('gl_ModelViewMatrixInverse','model_view_matrix_inverse'),
+    ('gl_ModelViewMatrix','model_view_matrix'),
     ('gl_ProjectionMatrixInverse','projection_matrix_inverse'),
     #('gl_ProjectionMatrix[3][3]','0.0'),
     ('gl_ProjectionMatrix','projection_matrix'),
@@ -110,8 +112,7 @@ replacements = [
     # World vector for background_transform_to_world and node_tex_coord_background
     # but using only one matrix uniform
     ('co_homogenous = (projection_matrix_inverse * v);', 'co_homogenous = v;'),
-    ('(mat4(1) /*mvmi*/ * co).xyz', '(view_imat3 * co.xyz)'),
-    ('mat4(1) /*mvmi*/', 'mat4(1)'),
+    ('(model_view_matrix_inverse * co).xyz', '(view_imat3 * co.xyz)'),
     # bad fix for equirectangular seams (just a little bit better than without it)
     # Still shows a seam but only when looking up or down
     # TODO: Proper fix using textureLod or textureGrad
