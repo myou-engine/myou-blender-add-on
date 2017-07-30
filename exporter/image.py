@@ -291,7 +291,8 @@ def get_non_alpha_images(used_data):
         # TODO: also check if any use_alpha of textures is enabled
         if not image.use_alpha:
             non_alpha_images.append(image)
-        elif not bpy.context.scene.get('skip_texture_conversion'):
+        elif not bpy.context.scene.get('skip_texture_conversion') \
+                and bpy.context.scene.myou_export_JPEG_compress == 'COMPRESS':
             # If it's not a format known to not have alpha channel,
             # make sure it has an alpha channel at all
             # by saving it as PNG and parsing the meta data
@@ -307,6 +308,10 @@ def get_non_alpha_images(used_data):
                         non_alpha_images.append(image)
                     os.unlink(tmp_filepath)
             else:
+                non_alpha_images.append(image)
+        else:
+            # export as quick as possible
+            if image.file_format == 'JPEG':
                 non_alpha_images.append(image)
     return non_alpha_images
 
