@@ -317,8 +317,8 @@ class NodeTreeShaderGenerator:
 
     def world2view_v3(self, var):
         # TODO: Make sure it needs the model view matrix and not the view matrix
-        return self.get_op_cache([var.type],
-            "direction_transform_m4v3({}, {}, {{}});".format(var(), self.view_matrix()()))[0]
+        return self.get_op_cache(['vec3'],
+            "direction_transform_m4v3({}, {}, {{}});".format(var, self.view_matrix()()))[0]
 
     def default_tangent(self):
         # This is the same as the "tangent" node with radial Z
@@ -327,8 +327,8 @@ class NodeTreeShaderGenerator:
                 .format(self.facingnormal()(), self.orco()(), self.object_matrix()(), self.view_matrix()(), self.view_matrix_inverse()()))[0]
 
     def viewN_to_shadeN(self, var):
-        return self.get_op_cache([var.type],
-            "viewN_to_shadeN({}, {{}});".format(var()))[0]
+        return self.get_op_cache(['vec3'],
+            "viewN_to_shadeN({}, {{}});".format(var))[0]
 
     def shade_mul_value_v3(self, a, b):
         return self.get_op_cache(['color3'],
@@ -346,6 +346,10 @@ class NodeTreeShaderGenerator:
         return self.get_op_cache(['color4'],
             "shade_madd_clamped({}, {}, {}, {{}});"\
                 .format(a.to_color4(), b.to_color4(), c.to_color4()))[0]
+
+    def shade_view(self, var):
+        return self.get_op_cache(['vec3'],
+            "shade_view({}, {{}});".format(var))[0]
 
     def node_tex_coord(self):
         # TODO: Split into several individual functions triggered only when an output is used
@@ -763,15 +767,17 @@ class NodeTreeShaderGenerator:
             view_tangent = self.normalize(self.default_tangent()) # optimize: remove normalize when not necessary
             tangent = self.normalize(self.view2world_v3(view_tangent))()
         else:
-            view_tangent = self.world2view_v3(Variable(tangent, 'vec3'))
+            view_tangent = self.world2view_v3(Variable(tangent, 'vec3')())
         ao_factor = self.ssao()
         env_sampling_out = self.tmp('vec3')
         total_light = self.value_to_var([0.0,0.0,0.0,0.0])
+        if self.lamps:
+            view_vector = self.shade_view(self.view_position()())()
 
         for lamp in self.lamps:
             # TODO: We're ignoring light nodes
             if use_lights and lamp['use_diffuse']: # TODO: is use_specular used?
-                light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, view_tangent(), roughness, toon_size, toon_smooth, anisotropy, aniso_rotation)
+                light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, normal, view_vector, view_tangent(), roughness, toon_size, toon_smooth, anisotropy, aniso_rotation)
                 # should we put this stuff inside bsdf_lamp?
                 lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
                 strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
@@ -797,7 +803,7 @@ class NodeTreeShaderGenerator:
         outputs = dict(BSDF=out)
         return code, outputs
 
-    def bsdf_lamp(self, bsdf_name, lamp, view_tangent, roughness, toon_size, toon_smooth, anisotropy, aniso_rotation):
+    def bsdf_lamp(self, bsdf_name, lamp, normal, view_vector, view_tangent, roughness, toon_size, toon_smooth, anisotropy, aniso_rotation):
         lamp_type = lamp['lamp_type']
         if lamp_type == 'POINT':
             fname = 'sphere'
@@ -811,11 +817,11 @@ class NodeTreeShaderGenerator:
             raise Exception("Unknown lamp type "+lamp_type)
         l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
 
-        N = self.viewN_to_shadeN(self.facingnormal())
+        N = self.viewN_to_shadeN(self.world2view_v3(normal)())
         out = self.tmp('float')
         self.code.append(
     "bsdf_{}_{}_light({}, {}, {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, {}, {}, {}, {}, {});".format
-            (bsdf_name, fname, N(), view_tangent, lv(), self.view_position()(), dist(), l_areasizex(),
+            (bsdf_name, fname, N(), view_tangent, lv(), view_vector, dist(), l_areasizex(),
             roughness, toon_size, toon_smooth, anisotropy, aniso_rotation, out()))
             # missing: l_coords, l_areasizey, l_areascale, l_mat: only for area light
         return out, visifac, N, lv
