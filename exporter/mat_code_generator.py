@@ -238,6 +238,9 @@ class NodeTreeShaderGenerator:
     def attr_tangent(self, name=''):
         return self.varying(dict(type='TANGENT', datatype='vec4', attname=name))
 
+    def attr_color(self, name=''):
+        return self.varying(dict(type='VCOL', datatype='vec4', attname=name, multiplier=0.0039215686)) # 1/255
+
     ## Uniforms ##
 
     def uniform(self, data):
@@ -392,6 +395,15 @@ class NodeTreeShaderGenerator:
     ## Input nodes ##
     # TODO: we're mixing view_position and proj_position everywhere
     # but both are wrong, we need a corrected proj_position
+
+    def attribute(self, invars, props):
+        name = props['attribute_name']
+        color = self.tmp('color4')
+        vector = self.tmp('vec3')
+        fac = self.tmp('float')
+        code = "node_attribute({}, {}, {}, {});".format(self.attr_color(name).to_vec3(), color(), vector(), fac())
+        outputs = dict(Color=color, Vector=vector, Fac=fac)
+        return code, outputs
 
     def camera(self, invars, props):
         outview = self.tmp('vec3')
