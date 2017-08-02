@@ -418,6 +418,9 @@ class NodeTreeShaderGenerator:
         normal = invars['Normal'].to_vec3()
         if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             normal = self.facingnormal()()
+        else:
+            # normal is in world space, we need it in view space
+            normal = self.world2view_v3(normal)()
         out = self.tmp('float')
         code = "node_fresnel({}, {}, {}, {});".format(ior, normal, self.view_position()(), out())
         outputs = dict(Fac=out)
