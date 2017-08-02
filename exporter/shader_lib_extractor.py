@@ -9,6 +9,11 @@ uniform mat4 projection_matrix;
 uniform mat4 projection_matrix_inverse;
 '''
 
+defines = '''
+#define USE_NEW_SHADING
+#define CORRECTION_NONE
+'''
+
 replacements = [
 
     ('''/* These are needed for high quality bump mapping */
@@ -240,8 +245,8 @@ vec4 textureCubeLodEXT(samplerCube t, vec3 c, float level){
     return textureCube(t, c, 2.0+level);}
 #endif
 #endif
-#define CORRECTION_NONE""" \
-        +uniforms+(parts[0]+'}').replace('\r','')+'\n'
+""" \
+        +defines+uniforms+(parts[0]+'}').replace('\r','')+'\n'
         SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
         # This section below is necessary because something is interpreted as non ascii for some reason
         # despite the line above (which is also necessary, mysteriously...)
