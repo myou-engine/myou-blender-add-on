@@ -44,13 +44,18 @@ def mat_to_json(mat, scn, layers):
         lamps = []
         for ob in scn.objects:
             if ob.type == 'LAMP' and ob.data:
+                use_shadow = False
+                shadow_buffer_type = ''
+                if ob.data.type != 'HEMI':
+                    use_shadow = ob.data.use_shadow
+                    shadow_buffer_type = ob.data.ge_shadow_buffer_type
                 lamps.append(dict(
                     name=ob.name,
                     lamp_type=ob.data.type,
                     use_diffuse=ob.data.use_diffuse,
                     use_specular=ob.data.use_specular,
-                    use_shadow=ob.data.use_shadow,
-                    shadow_buffer_type=ob.data.ge_shadow_buffer_type,
+                    use_shadow=use_shadow,
+                    shadow_buffer_type=shadow_buffer_type,
                 ))
 
         gen = mat_code_generator.NodeTreeShaderGenerator(tree, lamps)

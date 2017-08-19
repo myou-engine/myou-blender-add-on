@@ -646,7 +646,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
         if scn.render.engine != 'CYCLES':
             color = list(ob.data.color*ob.data.energy)
             energy = 1 # we never modified this in the end
-        elif ob.data.node_tree and 'Emission' in ob.data.node_tree.nodes:
+        elif ob.data.use_nodes and ob.data.node_tree and 'Emission' in ob.data.node_tree.nodes:
             # We'll use lamp nodes in the future
             # for now we'll just assume one emission node
             node = ob.data.node_tree.nodes['Emission']
@@ -655,6 +655,8 @@ def ob_to_json(ob, scn, check_cache, used_data):
         else:
             color = list(ob.data.color)
             energy = 1
+            if ob.data.type == 'SUN':
+                energy = 0.01
         data = {
             'lamp_type': ob.data.type,
             'color': color,
