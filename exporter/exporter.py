@@ -106,7 +106,7 @@ def search_scene_used_data(scene):
             elif n.bl_idname == 'ShaderNodeTexture' and n.texture:
                 use_normal_map = use_normal_map or getattr(n.texture, 'use_normal_map', False)
                 add_texture(n.texture,i+1)
-            elif n.bl_idname in ('ShaderNodeTexImage', 'ShaderNodeTexEnvironment'):
+            elif n.bl_idname in ('ShaderNodeTexImage', 'ShaderNodeTexEnvironment') and n.image:
                 add_image(n.image,i+1)
                 if n.color_space == 'NONE' and \
                     any([link.to_node.type == 'NORMAL_MAP' for link in n.outputs[0].links]):

@@ -570,6 +570,8 @@ class NodeTreeShaderGenerator:
         return code, outputs
 
     def tex_image(self, invars, props):
+        if not props['image']:
+            return '', dict(Color=self.value_to_var([0.0,0.0,0.0,0.0]), Alpha=self.value_to_var(0.0))
         ## node_tex_image co input uses mapping() with an identity matrix for some reason
         ## at least with orco. If something's wrong see if mapping was necessary
         co = invars['Vector']
