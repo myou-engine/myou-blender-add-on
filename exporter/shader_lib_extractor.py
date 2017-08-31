@@ -255,6 +255,7 @@ def set_shader_lib(fragment='', mat=None, scn=None):
 #define textureCube texture
 #define textureCubeLod textureLod
 #define texture2DProj textureProj
+#define sample sample_
 #endif
 precision highp float;
 precision highp int;

@@ -134,6 +134,13 @@ class NodeTreeShaderGenerator:
         uniforms = ['uniform {} {};'.format(v.glsl_type(), v())
             for u,v in self.uniforms.values() if 'varname' not in u]
         return '\n'.join(
+            ['#if __VERSION__ >= 130',
+            'out vec4 glOutColor;',
+            '#define gl_FragColor glOutColor',
+            '#define VARYING in',
+            '#else',
+            '#define VARYING varying',
+            '#endif']+
             varyings+
             uniforms+
             ['void main(){']+
