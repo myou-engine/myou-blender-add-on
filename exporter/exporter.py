@@ -236,6 +236,9 @@ def scene_data_to_json(scn=None):
             'type': s.type,
             'sound': s.sound.name if s.type=='SOUND' else '',
         } for s in sequences], key=lambda m:m['frame_start']),
+        # TODO: Extract these from the main view3D?
+        # 'bsdf_samples': space_data.pbr_settings.brdf.samples
+        # 'lod_bias': space_data.pbr_settings.brdf.lodbias
     }
     return scene_data
 

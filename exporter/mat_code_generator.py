@@ -128,7 +128,7 @@ class NodeTreeShaderGenerator:
             return {}
 
     def get_code(self):
-        varyings = ['varying {} {};'.format(v.glsl_type(), v())
+        varyings = ['VARYING {} {};'.format(v.glsl_type(), v())
             for u,v in self.varyings.values()]
         # If it has varname already, it means it was already declared elsewhere
         uniforms = ['uniform {} {};'.format(v.glsl_type(), v())
