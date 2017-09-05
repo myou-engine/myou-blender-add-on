@@ -305,8 +305,11 @@ class NodeTreeShaderGenerator:
         return self.op_cache[code]
 
     def facingnormal(self):
-        return self.get_op_cache(['vec3'],
-            "{{}} = gl_FrontFacing? {0}: -{0};".format(self.view_normal()()))[0]
+        # NOTE: Disabled due to buggy gl_FrontFacing in Pixel and other androids
+        # TODO: Figure out if it's possible to work around that
+        return self.view_normal()
+        # return self.get_op_cache(['vec3'],
+        #     "{{}} = gl_FrontFacing? {0}: -{0};".format(self.view_normal()()))[0]
 
     def shade_clamp_positive(self, var):
         return self.get_op_cache(['vec4'],
