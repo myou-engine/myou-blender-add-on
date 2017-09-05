@@ -5,6 +5,7 @@ from .phy_mesh import *
 from . import image
 from .util_convert import linearrgb_to_srgb
 
+import json
 from json import dumps, loads
 from collections import defaultdict
 import shutil
@@ -1174,6 +1175,10 @@ class MyouEngineExporter(bpy.types.Operator, ExportHelper):
 def menu_export(self, context):
     self.layout.operator(MyouEngineExporter.bl_idname, text="Myou Engine")
 
+def try_mkdir(dir):
+    if not os.path.isdir(dir):
+        os.mkdir(dir)
+
 def export_myou(path, scn):
     reset_progress()
 
@@ -1186,20 +1191,47 @@ def export_myou(path, scn):
         data_dir += os.sep
     full_dir = os.path.realpath(join(os.path.dirname(path), data_dir))
     old_export = ''
+
+    scenes_path = join(full_dir, 'scenes')
+    textures_path = join(full_dir, 'textures')
+    sounds_path = join(full_dir, 'sounds')
+
     if os.path.exists(full_dir):
-        shutil.rmtree(full_dir, ignore_errors=False)
+        if 0:
+            # Delete whole folder
+            shutil.rmtree(full_dir, ignore_errors=False)
+        else:
+            # Delete scene folders to be exported, and unused textures
+            for scene in bpy.data.scenes:
+                scn_dir = join(scenes_path, scene.name)
+                if os.path.exists(scn_dir):
+                    shutil.rmtree(scn_dir, ignore_errors=False)
+            used_textures = set()
+            for old_scene in os.listdir(join(full_dir, 'scenes')):
+                json_path = join(full_dir, 'scenes', old_scene, 'all.json')
+                if os.path.exists(json_path):
+                    jsonf = open(json_path)
+                    textures = [img['file_name']
+                        for tex in json.load(jsonf) if tex['type'] == 'TEXTURE'
+                            for fmt in tex['formats'].values()
+                                for img in fmt
+                                    if hasattr(img, 'keys') and 'file_name' in img
+                    ]
+                    used_textures.update(textures)
+                    jsonf.close()
+            for tex in os.listdir(textures_path):
+                tex_abs = join(textures_path, tex)
+                if tex not in used_textures and os.path.isfile(tex_abs):
+                    os.remove(tex_abs)
     try:
-        os.mkdir(full_dir)
-        os.mkdir(join(full_dir, 'scenes'))
-        os.mkdir(join(full_dir, 'textures'))
-        os.mkdir(join(full_dir, 'sounds'))
+        try_mkdir(full_dir)
+        try_mkdir(scenes_path)
+        try_mkdir(textures_path)
+        try_mkdir(sounds_path)
         for scene in bpy.data.scenes:
             used_data = search_scene_used_data(scene)
-            textures_path = join(full_dir, 'textures')
-            sounds_path = join(full_dir, 'sounds')
-            scn_dir = join(full_dir, 'scenes', scene.name)
-            try: os.mkdir(scn_dir)
-            except FileExistsError: pass
+            scn_dir = join(scenes_path, scene.name)
+            try_mkdir(scn_dir)
             scene_json, scene_json_gz = whole_scene_to_json(scene, used_data, textures_path)
             open(join(scn_dir, 'all.json'), 'wb').write(scene_json)
             if scn.myou_export_compress_scene:
@@ -1215,9 +1247,10 @@ def export_myou(path, scn):
             for fname in scene.myou_export_copy_files.split(' '):
                 apath = join(blend_dir, fname)
                 oname = fname.replace(os.sep, '/').replace('../','')
-                print("exists",apath,os.path.isfile(apath))
                 if fname and os.path.isfile(apath):
                     shutil.copy(apath, join(full_dir, oname))
+                else:
+                    print("Warning: File doesn't exist: "+apath)
     except:
         import datetime
         # shutil.move(full_dir, full_dir+'_FAILED_'+str(datetime.datetime.now()).replace(':','-').replace(' ','_').split('.')[0])

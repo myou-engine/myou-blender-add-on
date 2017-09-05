@@ -151,7 +151,7 @@ def export_node(node, ramps):
         out_props['ramp_name'] = get_ramp_hash(node.color_ramp, ramps)
     elif node.type == 'NORMAL':
         out['properties'] = {'normal': list(node.outputs['Normal'].default_value)}
-    pprint(out)
+    # pprint(out)
     return out
 
 def export_nodes_of_group(node_tree, ramps):

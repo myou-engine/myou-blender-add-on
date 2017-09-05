@@ -185,7 +185,7 @@ class NodeTreeShaderGenerator:
                 invars[name] = self.get_outputs(linked_node)[input['link']['socket']]
             else:
                 invars[name] = Variable('(0.0)', 'float')
-        pprint(node)
+        # pprint(node)
         if not hasattr(self, node['type'].lower()):
             pprint(node)
             raise Exception("Code for node {} not found".format(node['type']))

@@ -63,7 +63,7 @@ def mat_to_json(mat, scn, layers):
         code = gen.get_code()
         uniforms = gen.get_uniforms()
         varyings = gen.get_varyings()
-        pprint(uniforms)
+        # pprint(uniforms)
         material_type = 'BLENDER_CYCLES_PBR'
         return dict(
             type='MATERIAL',
@@ -91,7 +91,7 @@ def world_material_to_json(scn):
         code = gen.get_code()
         uniforms = gen.get_uniforms()
         varyings = gen.get_varyings()
-        pprint(uniforms)
+        # pprint(uniforms)
         material_type = 'BLENDER_CYCLES_PBR'
         return dict(
             type='MATERIAL',
