@@ -945,9 +945,8 @@ class NodeTreeShaderGenerator:
     def bump(self, invars, props):
         normal = invars['Normal'].to_vec3()
         if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
-            normal = self.facingnormal()
+            normal = self.view2world_v3(self.facingnormal())
         normal = self.normalize(normal)
-        self.model_view_matrix_inverse() # ensure it's set up
         out = self.tmp('vec3')
         code = "node_bump({}, {}, {}, {}, {}, {}, {});".format(
             invars['Strength'].to_float(),
