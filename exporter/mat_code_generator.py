@@ -431,6 +431,7 @@ class NodeTreeShaderGenerator:
         else:
             # normal is in world space, we need it in view space
             normal = self.world2view_v3(normal)
+        normal = self.normalize(normal)
         out = self.tmp('float')
         code = "node_fresnel({}, {}, {}, {});".format(ior, normal, self.view_position(), out)
         outputs = dict(Fac=out)
@@ -441,6 +442,7 @@ class NodeTreeShaderGenerator:
         normal = invars['Normal'].to_vec3()
         if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             normal = self.facingnormal()
+        normal = self.normalize(normal)
         fresnel = self.tmp('float')
         facing = self.tmp('float')
         code = "node_layer_weight({}, {}, {}, {}, {});".format(blend, normal, self.view_position(), fresnel, facing)
@@ -789,11 +791,13 @@ class NodeTreeShaderGenerator:
             anisotropy='0.0', aniso_rotation='0.0',
             use_lights=True):
         if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
-            normal = self.normalize(self.view2world_v3(self.facingnormal()))
+            normal = self.view2world_v3(self.facingnormal())
+        normal = self.normalize(normal)
         if str(tangent) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected or it has no socket
-            view_tangent = self.normalize(self.default_tangent()) # optimize: remove normalize when not necessary
-            tangent = self.normalize(self.view2world_v3(view_tangent))
+            view_tangent = self.normalize(self.default_tangent())
+            tangent = self.view2world_v3(view_tangent)
         else:
+            tangent = self.normalize(tangent)
             view_tangent = self.world2view_v3(Variable(tangent, 'vec3'))
         ao_factor = self.ssao()
         env_sampling_out = self.tmp('vec3')
@@ -942,6 +946,7 @@ class NodeTreeShaderGenerator:
         normal = invars['Normal'].to_vec3()
         if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             normal = self.facingnormal()
+        normal = self.normalize(normal)
         self.model_view_matrix_inverse() # ensure it's set up
         out = self.tmp('vec3')
         code = "node_bump({}, {}, {}, {}, {}, {}, {});".format(
