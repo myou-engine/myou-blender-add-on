@@ -290,7 +290,7 @@ class NodeTreeShaderGenerator:
     # TODO: Should we provide a "mat3(view_imat)" instead?
     def rotation_matrix_inverse(self):
         return self.uniform(dict(type='VIEW_IMAT3', datatype='mat3',
-                                 varname='view_imat3'))
+                                 varname='rotation_matrix_inverse'))
 
     #def unfcameratexfactors(self):
         # TODO: also enable gl_ProjectionMatrix
@@ -612,6 +612,7 @@ class NodeTreeShaderGenerator:
         sampler = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['image']))
         color = self.tmp('color4')
         if props['projection'] == 'EQUIRECTANGULAR':
+            self.rotation_matrix_inverse()
             self.code.append("node_tex_environment_equirectangular({}, {}, {});".format(
                 co.to_vec3(), sampler, color))
         elif props['projection'] == 'MIRROR_BALL':

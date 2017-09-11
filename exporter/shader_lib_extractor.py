@@ -2,7 +2,7 @@ from pprint import *
 import re
 
 uniforms = '''
-uniform mat3 view_imat3;
+uniform mat3 rotation_matrix_inverse;
 uniform mat4 model_view_matrix;
 uniform mat4 model_view_matrix_inverse;
 uniform mat4 projection_matrix;
@@ -120,12 +120,12 @@ uniform vec2 unfbsdfsamples;
     # World vector for background_transform_to_world and node_tex_coord_background
     # but using only one matrix uniform
     ('co_homogenous = (projection_matrix_inverse * v);', 'co_homogenous = v;'),
-    ('(model_view_matrix_inverse * co).xyz', '(view_imat3 * co.xyz)'),
+    ('(model_view_matrix_inverse * co).xyz', '(rotation_matrix_inverse * co.xyz)'),
     # bad fix for equirectangular seams (just a little bit better than without it)
     # Still shows a seam but only when looking up or down
     # TODO: Proper fix using textureLod or textureGrad
     ('''-atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5;''',
-     '''(view_imat3[2][0]<0.0)?
+     '''(rotation_matrix_inverse[2][0]<0.0)?
         -atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5:
         -atan(-nco.y, -nco.x) / (2.0 * M_PI);'''
     ),
