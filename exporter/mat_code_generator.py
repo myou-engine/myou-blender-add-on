@@ -944,14 +944,19 @@ class NodeTreeShaderGenerator:
 
     def bump(self, invars, props):
         normal = invars['Normal'].to_vec3()
+        height = invars['Height'].to_float()
         if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             normal = self.view2world_v3(self.facingnormal())
+        if str(height) == '(1.0)':
+            # If height is not connected, this node is only serving as a
+            # normal socket helper, so we skip all the rest
+            return '', dict(Normal=normal)
         normal = self.normalize(normal)
         out = self.tmp('vec3')
         code = "node_bump({}, {}, {}, {}, {}, {}, {});".format(
             invars['Strength'].to_float(),
             invars['Distance'].to_float(),
-            invars['Height'].to_float(),
+            height,
             normal,
             self.view_position(),
             str(float(props['invert'])),
