@@ -20,11 +20,11 @@ from .util_convert import gl_matrix_to_blender, blender_matrix_to_gl
 
 class Variable:
     def __init__(self, name, type):
-        self.name = name
+        self.name = str(name)
         self.type = type
         self.used = False
 
-    def __call__(self):
+    def __str__(self):
         self.used = True
         return self.name
 
@@ -33,45 +33,45 @@ class Variable:
 
     def to_float(self):
         if self.type=='float':
-            return self()
+            return self
         elif self.type in ['vec4','color4']:
-            return "convert_rgba_to_float({})".format(self())
+            return Variable("convert_rgba_to_float({})".format(self), 'float')
         elif self.type in ['color3']:
-            return "convert_rgba_to_float({}.rgbb)".format(self())
+            return Variable("convert_rgba_to_float({}.rgbb)".format(self), 'float')
         else:
-            return self()+'.x'
+            return Variable('{}.x'.format(self), 'float')
 
     def to_vec3(self):
         if self.type=='float':
-            return "vec3({})".format(self())
+            return Variable("vec3({})".format(self), 'vec3')
         elif self.type=='vec2':
-            return "vec3({}.xy, 0.0)".format(self())
+            return Variable("vec3({}.xy, 0.0)".format(self), 'vec3')
         elif self.type in ['vec3', 'color3']:
-            return self()
+            return Variable(self, 'vec3')
         elif self.type in ['vec4','color4']:
-            return self()+'.xyz'
+            return Variable('{}.xyz'.format(self), 'vec3')
         raise Exception(self.type)
 
     def to_color4(self):
         if self.type=='float':
-            return "vec4(vec3({}), 1.0)".format(self())
+            return Variable("vec4(vec3({}), 1.0)".format(self), 'color4')
         elif self.type=='vec2':
-            return "vec4({}.xy, 0.0, 1.0)".format(self())
+            return Variable("vec4({}.xy, 0.0, 1.0)".format(self), 'color4')
         elif self.type in ['vec3', 'color3']:
-            return "vec4({}.xyz, 1.0)".format(self())
+            return Variable("vec4({}.xyz, 1.0)".format(self), 'color4')
         elif self.type in ['vec4','color4']:
-            return self()
+            return Variable(self, 'color4')
         raise Exception(self.type)
 
     def to_vec4(self):
         if self.type=='float':
-            return "vec4(vec3({}), 1.0)".format(self())
+            return Variable("vec4(vec3({}), 1.0)".format(self), 'vec4')
         elif self.type=='vec2':
-            return "vec4({}.xy, 0.0, 1.0)".format(self())
+            return Variable("vec4({}.xy, 0.0, 1.0)".format(self), 'vec4')
         elif self.type in ['vec3', 'color3']:
-            return "vec4({}.xyz, 1.0)".format(self())
+            return Variable("vec4({}.xyz, 1.0)".format(self), 'vec4')
         elif self.type in ['vec4','color4']:
-            return self()
+            return Variable(self, 'vec4')
         raise Exception(self.type)
 
     def to_normal(self, generator):
@@ -128,10 +128,10 @@ class NodeTreeShaderGenerator:
             return {}
 
     def get_code(self):
-        varyings = ['VARYING {} {};'.format(v.glsl_type(), v())
+        varyings = ['VARYING {} {};'.format(v.glsl_type(), v)
             for u,v in self.varyings.values()]
         # If it has varname already, it means it was already declared elsewhere
-        uniforms = ['uniform {} {};'.format(v.glsl_type(), v())
+        uniforms = ['uniform {} {};'.format(v.glsl_type(), v)
             for u,v in self.uniforms.values() if 'varname' not in u]
         return '\n'.join(
             ['#if __VERSION__ >= 130',
@@ -155,7 +155,7 @@ class NodeTreeShaderGenerator:
         for u,v in self.uniforms.values():
             d = u.copy()
             d['datatype'] = v.glsl_type()
-            d['varname'] = v()
+            d['varname'] = str(v)
             r.append(d)
         return r
 
@@ -164,7 +164,7 @@ class NodeTreeShaderGenerator:
         for u,v in self.varyings.values():
             d = u.copy()
             d['datatype'] = v.glsl_type()
-            d['varname'] = v()
+            d['varname'] = str(v)
             r.append(d)
         return r
 
@@ -309,7 +309,7 @@ class NodeTreeShaderGenerator:
         # TODO: Figure out if it's possible to work around that
         return self.view_normal()
         # return self.get_op_cache(['vec3'],
-        #     "{{}} = gl_FrontFacing? {0}: -{0};".format(self.view_normal()()))[0]
+        #     "{{}} = gl_FrontFacing? {0}: -{0};".format(self.view_normal()))[0]
 
     def shade_clamp_positive(self, var):
         return self.get_op_cache(['vec4'],
@@ -317,27 +317,27 @@ class NodeTreeShaderGenerator:
 
     def ssao(self):
         return self.get_op_cache(['float'],
-            "ssao({}, {}, {{}});".format(self.view_position()(), self.facingnormal()()))[0]
+            "ssao({}, {}, {{}});".format(self.view_position(), self.facingnormal()))[0]
 
     def normalize(self, var):
         return self.get_op_cache([var.type],
-            "vect_normalize({}, {{}});".format(var()))[0]
+            "vect_normalize({}, {{}});".format(var))[0]
 
     def view2world_v3(self, var):
         # TODO: Make sure it needs the model view matrix and not the view matrix
         return self.get_op_cache([var.type],
-            "direction_transform_m4v3({}, {}, {{}});".format(var(), self.view_matrix_inverse()()))[0]
+            "direction_transform_m4v3({}, {}, {{}});".format(var, self.view_matrix_inverse()))[0]
 
     def world2view_v3(self, var):
         # TODO: Make sure it needs the model view matrix and not the view matrix
         return self.get_op_cache(['vec3'],
-            "direction_transform_m4v3({}, {}, {{}});".format(var, self.view_matrix()()))[0]
+            "direction_transform_m4v3({}, {}, {{}});".format(var, self.view_matrix()))[0]
 
     def default_tangent(self):
         # This is the same as the "tangent" node with radial Z
         return self.get_op_cache(['vec3'],
             "default_tangent({}, {}, {}, {}, {}, {{}});"\
-                .format(self.facingnormal()(), self.orco()(), self.object_matrix()(), self.view_matrix()(), self.view_matrix_inverse()()))[0]
+                .format(self.facingnormal(), self.orco(), self.object_matrix(), self.view_matrix(), self.view_matrix_inverse()))[0]
 
     def viewN_to_shadeN(self, var):
         return self.get_op_cache(['vec3'],
@@ -375,12 +375,12 @@ class NodeTreeShaderGenerator:
                 "{{}}, {{}}, {{}}, {{}}, {{}}, {{}}, {{}});"\
                 .format(
                     fname,
-                    self.view_position()(),
-                    self.facingnormal()(),
-                    self.view_matrix_inverse()(),
-                    self.object_matrix_inverse()(),
-                    'vec4(0.0)', #self.unfcameratexfactors()(),
-                    self.orco()(),
+                    self.view_position(),
+                    self.facingnormal(),
+                    self.view_matrix_inverse(),
+                    self.object_matrix_inverse(),
+                    'vec4(0.0)', #self.unfcameratexfactors(),
+                    self.orco(),
                     self.uv().to_vec3()
                 ))
 
@@ -392,13 +392,13 @@ class NodeTreeShaderGenerator:
         # (see shader_lib_extractor.py)
         return self.get_op_cache(['vec3'],
             "background_transform_to_world({}, {{}});"\
-                .format(self.view_position()()))[0]
+                .format(self.view_position()))[0]
 
     def tangent_orco(self, axis):
         # axis is lowercase 'x', 'y', 'z'
         return self.get_op_cache(['vec3'],
             "tangent_orco_{}({}, {{}});"\
-                .format(axis, self.orco()()))[0]
+                .format(axis, self.orco()))[0]
 
     ## Direct node functions ##
 
@@ -411,7 +411,7 @@ class NodeTreeShaderGenerator:
         color = self.tmp('color4')
         vector = self.tmp('vec3')
         fac = self.tmp('float')
-        code = "node_attribute({}, {}, {}, {});".format(self.attr_color(name).to_vec3(), color(), vector(), fac())
+        code = "node_attribute({}, {}, {}, {});".format(self.attr_color(name).to_vec3(), color, vector, fac)
         outputs = dict(Color=color, Vector=vector, Fac=fac)
         return code, outputs
 
@@ -419,31 +419,31 @@ class NodeTreeShaderGenerator:
         outview = self.tmp('vec3')
         outdepth = self.tmp('float')
         outdist = self.tmp('float')
-        code = "camera({}, {}, {}, {});".format(self.proj_position3()(), outview(), outdepth(), outdist())
+        code = "camera({}, {}, {}, {});".format(self.proj_position3(), outview, outdepth, outdist)
         outputs = dict(View_Vector=outview, View_Z_Depth=outdepth, View_Distance=outdist)
         return code, outputs
 
     def fresnel(self, invars, props):
         ior = invars['IOR'].to_float()
         normal = invars['Normal'].to_vec3()
-        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
-            normal = self.facingnormal()()
+        if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.facingnormal()
         else:
             # normal is in world space, we need it in view space
-            normal = self.world2view_v3(normal)()
+            normal = self.world2view_v3(normal)
         out = self.tmp('float')
-        code = "node_fresnel({}, {}, {}, {});".format(ior, normal, self.view_position()(), out())
+        code = "node_fresnel({}, {}, {}, {});".format(ior, normal, self.view_position(), out)
         outputs = dict(Fac=out)
         return code, outputs
 
     def layer_weight(self, invars, props):
         blend = invars['Blend'].to_float()
         normal = invars['Normal'].to_vec3()
-        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
-            normal = self.facingnormal()()
+        if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.facingnormal()
         fresnel = self.tmp('float')
         facing = self.tmp('float')
-        code = "node_layer_weight({}, {}, {}, {}, {});".format(blend, normal, self.view_position()(), fresnel(), facing())
+        code = "node_layer_weight({}, {}, {}, {}, {});".format(blend, normal, self.view_position(), fresnel, facing)
         outputs = dict(Fresnel=fresnel, Facing=facing)
         return code, outputs
 
@@ -458,10 +458,10 @@ class NodeTreeShaderGenerator:
         pointiness = self.tmp('float')
 
         code = "node_geometry({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            self.view_position()(), self.facingnormal()(), self.orco()(),
-            self.view_matrix_inverse()(), self.object_matrix()(),
-            position(), normal(), tangent(), true_normal(), incoming(),
-            parametric(), backfacing(), pointiness(),
+            self.view_position(), self.facingnormal(), self.orco(),
+            self.view_matrix_inverse(), self.object_matrix(),
+            position, normal, tangent, true_normal, incoming,
+            parametric, backfacing, pointiness,
         )
         outputs = dict(
             Position=position,
@@ -481,7 +481,7 @@ class NodeTreeShaderGenerator:
         matindex = self.tmp('float')
         random = self.tmp('float')
         code = "node_object_info({}, {}, {}, {}, {});".format(
-            self.object_matrix()(), location(), obindex(), matindex(), random(),
+            self.object_matrix(), location, obindex, matindex, random,
         )
         outputs = dict(
             Location=location, Object_Index=obindex,
@@ -501,13 +501,13 @@ class NodeTreeShaderGenerator:
             else:
                 v = self.tangent_orco(props['axis'].lower())
                 code = "node_tangent({}, {}, {}, {}, {});".format(
-                    self.facingnormal()(), v(),
-                    self.object_matrix()(), self.view_matrix_inverse()(), tangent(),
+                    self.facingnormal(), v,
+                    self.object_matrix(), self.view_matrix_inverse(), tangent,
                 )
         elif ttype == 'UV_MAP':
             v = self.attr_tangent(props['uv_map'])
             code = "node_tangentmap({}, {}, {});".format(
-                v(), self.view_matrix_inverse()(), tangent(),
+                v, self.view_matrix_inverse(), tangent,
             )
         else:
             raise Exception("Tangent type {} not implemented".format(ttype))
@@ -524,22 +524,22 @@ class NodeTreeShaderGenerator:
 
     def output_material(self, invars, props):
         in1 = invars['Surface'].to_color4()
-        tmp = self.tmp('vec4')()
+        tmp = self.tmp('vec4')
         code = ["linearrgb_to_srgb({0}, {1});"]
         if 0: # ALPHA_AS_DEPTH
             code += ["gl_FragColor = vec4({1}.rgb, {2}.z);"]
         else:
             code += ["gl_FragColor = {1};"]
-        code = self.join_code(code).format(in1, tmp, self.view_position()())
+        code = self.join_code(code).format(in1, tmp, self.view_position())
         outputs = dict()
         return code, outputs
 
     def output_world(self, invars, props):
         in1 = invars['Surface'].to_color4()
-        tmp = self.tmp('vec4')()
+        tmp = self.tmp('vec4')
         code = ["linearrgb_to_srgb({0}, {1});"]
         code += ["gl_FragColor = {1};"]
-        code = self.join_code(code).format(in1, tmp, self.view_position()())
+        code = self.join_code(code).format(in1, tmp, self.view_position())
         outputs = dict()
         return code, outputs
 
@@ -570,12 +570,12 @@ class NodeTreeShaderGenerator:
         color1 = invars['Color1'].to_color4()
         color2 = invars['Color2'].to_color4()
         out = self.tmp('color4')
-        code = "mix_{}({}, {}, {}, {});".format(blend_type, fac, color1, color2, out())
+        code = "mix_{}({}, {}, {}, {});".format(blend_type, fac, color1, color2, out)
         outputs = dict(Color=out)
         if props['use_clamp']:
             clamped = self.tmp('vec3')
             self.code.append(code)
-            code = "{} = clamp({}, vec3(0.0), vec3(1.0));".format(clamped(), out.to_vec3())
+            code = "{} = clamp({}, vec3(0.0), vec3(1.0));".format(clamped, out.to_vec3())
             outputs = dict(Color=clamped)
         return code, outputs
 
@@ -585,16 +585,16 @@ class NodeTreeShaderGenerator:
         ## node_tex_image co input uses mapping() with an identity matrix for some reason
         ## at least with orco. If something's wrong see if mapping was necessary
         co = invars['Vector']
-        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+        if str(co) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             co = self.uv()
         sampler = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['image']))
         color = self.tmp('color4')
         alpha = self.tmp('float')
         self.code.append("node_tex_image({}, {}, {}, {});".format(
-            co.to_vec3(), sampler(), color(), alpha()))
+            co.to_vec3(), sampler, color, alpha))
         if props['color_space'] == 'COLOR':
             out = self.tmp('color4')
-            code = "srgb_to_linearrgb({},{});".format(color(), out())
+            code = "srgb_to_linearrgb({},{});".format(color, out)
         else:
             out = color
             out.type = 'vec4'
@@ -605,19 +605,19 @@ class NodeTreeShaderGenerator:
         ## node_tex_* co input use mapping() with an identity matrix for some reason
         ## at least with orco. If something's wrong see if mapping was necessary
         co = invars['Vector']
-        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+        if str(co) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             co = self.background_transform_to_world()
         sampler = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['image']))
         color = self.tmp('color4')
         if props['projection'] == 'EQUIRECTANGULAR':
             self.code.append("node_tex_environment_equirectangular({}, {}, {});".format(
-                co.to_vec3(), sampler(), color()))
+                co.to_vec3(), sampler, color))
         elif props['projection'] == 'MIRROR_BALL':
             self.code.append("node_tex_environment_mirror_ball({}, {}, {});".format(
-                co.to_vec3(), sampler(), color()))
+                co.to_vec3(), sampler, color))
         if props['color_space'] == 'COLOR':
             out = self.tmp('color4')
-            code = "srgb_to_linearrgb({},{});".format(color(), out())
+            code = "srgb_to_linearrgb({},{});".format(color, out)
         else:
             out = color
             out.type = 'vec4'
@@ -627,30 +627,30 @@ class NodeTreeShaderGenerator:
     def tex_noise(self, invars, props):
         # NOTE: It doesn't work
         co = invars['Vector']
-        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+        if str(co) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             co = self.orco()
         out = self.tmp('color4')
         fac = self.tmp('float')
         code = "node_tex_noise({}, {}, {}, {}, {}, {});".format(
-            co(),
+            co,
             invars['Scale'].to_float(),
             invars['Detail'].to_float(),
             invars['Distortion'].to_float(),
-            out(), fac())
+            out, fac)
         return code, dict(Color=out, Fac=fac)
 
     def tex_checker(self, invars, props):
         co = invars['Vector']
-        if co() == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+        if str(co) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             co = self.orco()
         out = self.tmp('color4')
         fac = self.tmp('float')
         code = "node_tex_checker({}, {}, {}, {}, {}, {});".format(
-            co(),
+            co,
             invars['Color1'].to_color4(),
             invars['Color2'].to_color4(),
             invars['Scale'].to_float(),
-            out(), fac())
+            out, fac)
         return code, dict(Color=out, Fac=fac)
 
 
@@ -659,14 +659,14 @@ class NodeTreeShaderGenerator:
         color = invars['Color'].to_color4()
         strength = invars['Strength'].to_float()
         out = self.tmp('color4')
-        code = "node_emission({}, {}, vec3(0.0), {});".format(color, strength, out())
+        code = "node_emission({}, {}, vec3(0.0), {});".format(color, strength, out)
         return code, {'Emission': out}
 
     def background(self, invars, props):
         color = invars['Color'].to_color4()
         strength = invars['Strength'].to_float()
         out = self.tmp('color4')
-        code = "node_background({}, {}, vec3(0.0), {});".format(color, strength, out())
+        code = "node_background({}, {}, vec3(0.0), {});".format(color, strength, out)
         return code, {'Background': out}
 
     ## Shader nodes
@@ -708,7 +708,7 @@ class NodeTreeShaderGenerator:
         tangent = invars['Tangent'].to_vec3()
         out = self.tmp('color4')
         code = "node_bsdf_hair({},{},{},{},{},{});".format(
-            color0, offset, roughnessU, roughnessV, tangent, out())
+            color0, offset, roughnessU, roughnessV, tangent, out)
         return code, dict(BSDF=out)
 
     def holdout(self, invars, props):
@@ -750,7 +750,7 @@ class NodeTreeShaderGenerator:
         normal = invars['Normal'].to_vec3()
         # out = self.tmp('color4')
         # code = "node_subsurface_scattering({},{},{},{},{},{},{});".format(
-        #     color0, scale, radius, sharpness, blur, normal, out())
+        #     color0, scale, radius, sharpness, blur, normal, out)
         out = self.value_to_var([0.0,0.0,0.0,0.0])
         code = ''
         return code, dict(BSSRDF=out)
@@ -765,7 +765,7 @@ class NodeTreeShaderGenerator:
         shader0 = invars['Shader'].to_color4()
         shader1 = invars['Shader$1'].to_color4()
         out = self.tmp('color4')
-        code = "node_add_shader({}, {}, {});".format(shader0, shader1, out())
+        code = "node_add_shader({}, {}, {});".format(shader0, shader1, out)
         return code, {'Shader': out}
 
     def mix_shader(self, invars, props):
@@ -773,13 +773,13 @@ class NodeTreeShaderGenerator:
         shader0 = invars['Shader'].to_color4()
         shader1 = invars['Shader$2'].to_color4()
         out = self.tmp('color4')
-        code = "node_mix_shader({}, {}, {}, {});".format(factor, shader0, shader1, out())
+        code = "node_mix_shader({}, {}, {}, {});".format(factor, shader0, shader1, out)
         return code, {'Shader': out}
 
     def ambient_occlusion(self, invars, props):
         color = invars['Color'].to_color4()
         out = self.tmp('color4')
-        code = "node_bsdf_opaque({}, vec4(vec3({}), 1.0), vec4(0.0), {});".format(color, self.ssao()(), out())
+        code = "node_bsdf_opaque({}, vec4(vec3({}), 1.0), vec4(0.0), {});".format(color, self.ssao(), out)
         return code, {'AO': out}
 
     # Indirect BSDF* #
@@ -788,23 +788,23 @@ class NodeTreeShaderGenerator:
             toon_size='0.0', toon_smooth='0.0',
             anisotropy='0.0', aniso_rotation='0.0',
             use_lights=True):
-        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
-            normal = self.normalize(self.view2world_v3(self.facingnormal()))()
-        if tangent == 'vec3(0.0, 0.0, 0.0)': # if it's not connected or it has no socket
+        if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.normalize(self.view2world_v3(self.facingnormal()))
+        if str(tangent) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected or it has no socket
             view_tangent = self.normalize(self.default_tangent()) # optimize: remove normalize when not necessary
-            tangent = self.normalize(self.view2world_v3(view_tangent))()
+            tangent = self.normalize(self.view2world_v3(view_tangent))
         else:
-            view_tangent = self.world2view_v3(Variable(tangent, 'vec3')())
+            view_tangent = self.world2view_v3(Variable(tangent, 'vec3'))
         ao_factor = self.ssao()
         env_sampling_out = self.tmp('vec3')
         total_light = self.value_to_var([0.0,0.0,0.0,0.0])
         if self.lamps:
-            view_vector = self.shade_view(self.view_position()())()
+            view_vector = self.shade_view(self.view_position())
 
         for lamp in self.lamps:
             # TODO: We're ignoring light nodes
             if use_lights and lamp['use_diffuse']: # TODO: is use_specular used?
-                light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, normal, view_vector, view_tangent(), roughness, toon_size, toon_smooth, anisotropy, aniso_rotation)
+                light, visifac, shade_normal, lv = self.bsdf_lamp(bsdf_name, lamp, normal, view_vector, view_tangent, roughness, toon_size, toon_smooth, anisotropy, aniso_rotation)
                 # should we put this stuff inside bsdf_lamp?
                 lamp_color = self.uniform(dict(lamp=lamp['name'], type='LAMP_COL', datatype='color4'))
                 strength = self.uniform(dict(lamp=lamp['name'], type='LAMP_STRENGTH', datatype='float'))
@@ -820,13 +820,13 @@ class NodeTreeShaderGenerator:
 
         bsdf_name = bsdf_name.replace('anisotropic_', 'aniso_')
         self.code.append("env_sampling_{}(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            bsdf_name, self.view_position()(), self.view_matrix_inverse()(), self.model_view_matrix()(),
+            bsdf_name, self.view_position(), self.view_matrix_inverse(), self.model_view_matrix(),
             normal, tangent, roughness, ior, sigma, toon_size, toon_smooth,
-            anisotropy, aniso_rotation, ao_factor(), env_sampling_out()))
+            anisotropy, aniso_rotation, ao_factor, env_sampling_out))
 
         ambient = self.shade_clamp_positive(env_sampling_out)
         out = self.tmp('vec4')
-        code = "node_bsdf_opaque({},{},{},{});".format(color, ambient(), total_light(), out())
+        code = "node_bsdf_opaque({},{},{},{});".format(color, ambient, total_light, out)
         outputs = dict(BSDF=out)
         return code, outputs
 
@@ -844,35 +844,35 @@ class NodeTreeShaderGenerator:
             raise Exception("Unknown lamp type "+lamp_type)
         l_areasizex = self.uniform(dict(lamp=lamp['name'], type='LAMP_SIZE', datatype='float'))
 
-        N = self.viewN_to_shadeN(self.world2view_v3(normal)())
+        N = self.viewN_to_shadeN(self.world2view_v3(normal))
         out = self.tmp('float')
         self.code.append(
     "bsdf_{}_{}_light({}, {}, {}, {}, vec3(0.0), {}, {}, 0.0, vec2(1.0), mat4(0.0), {}, 0.0, 0.0, {}, {}, {}, {}, {});".format
-            (bsdf_name, fname, N(), view_tangent, lv(), view_vector, dist(), l_areasizex(),
-            roughness, toon_size, toon_smooth, anisotropy, aniso_rotation, out()))
+            (bsdf_name, fname, N, view_tangent, lv, view_vector, dist, l_areasizex,
+            roughness, toon_size, toon_smooth, anisotropy, aniso_rotation, out))
             # missing: l_coords, l_areasizey, l_areascale, l_mat: only for area light
         return out, visifac, N, lv
 
     def lamp_visibility_other(self, lamp):
         lampco = self.uniform(dict(lamp=lamp['name'], type='LAMP_CO', datatype='vec3'))
         return self.get_op_cache(['vec3', 'float', 'float'],
-            "lamp_visibility_other({}, {}, {{}}, {{}}, {{}});".format(self.view_position()(), lampco()))
+            "lamp_visibility_other({}, {}, {{}}, {{}}, {{}});".format(self.view_position(), lampco))
 
     def shadow_vsm(self, lamp_name, shade_normal, lv):
         shade_inp = self.get_op_cache(['float'],
-            "shade_inp({}, {}, {{}});".format(shade_normal(), lv()))[0]
+            "shade_inp({}, {}, {{}});".format(shade_normal, lv))[0]
         shadow_map = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_MAP', datatype='sampler2D'))
         shadow_proj = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_PROJ', datatype='mat4'))
         shadow_bias = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_BIAS', datatype='float'))
         bleed_bias = self.uniform(dict(lamp=lamp_name, type='LAMP_BLEED_BIAS', datatype='float'))
         return self.get_op_cache(['float'],
             "test_shadowbuf_vsm({}, {}, {}, {}, {}, {}, {{}});".format(
-                self.view_position()(),
-                shadow_map(),
-                shadow_proj(),
-                shadow_bias(),
-                bleed_bias(),
-                shade_inp(),
+                self.view_position(),
+                shadow_map,
+                shadow_proj,
+                shadow_bias,
+                bleed_bias,
+                shade_inp,
             ))[0]
 
     ## Color nodes
@@ -883,7 +883,7 @@ class NodeTreeShaderGenerator:
         contrast = invars['Contrast'].to_float()
         out = self.tmp('color4')
         code = "brightness_contrast({}, {}, {}, {});".format(
-            color0, bright, contrast, out())
+            color0, bright, contrast, out)
         return code, dict(Color=out)
 
     def gamma(self, invars, props):
@@ -891,7 +891,7 @@ class NodeTreeShaderGenerator:
         gamma = invars['Gamma'].to_float()
         out = self.tmp('color4')
         code = "node_gamma({}, {}, {});".format(
-            color0, gamma, out())
+            color0, gamma, out)
         return code, dict(Color=out)
 
     def hue_sat(self, invars, props):
@@ -902,7 +902,7 @@ class NodeTreeShaderGenerator:
         fac = invars['Fac'].to_float()
         out = self.tmp('color4')
         code = "hue_sat({}, {}, {}, {}, {}, {});".format(
-            hue, saturation, value, fac, color0, out())
+            hue, saturation, value, fac, color0, out)
         return code, dict(Color=out)
 
     def invert(self, invars, props):
@@ -910,7 +910,7 @@ class NodeTreeShaderGenerator:
         fac = invars['Fac'].to_float()
         out = self.tmp('color4')
         code = "invert({}, {}, {});".format(
-            fac, color0, out())
+            fac, color0, out)
         return code, dict(Color=out)
 
     def light_falloff(self, invars, props):
@@ -922,8 +922,8 @@ class NodeTreeShaderGenerator:
             invars['Strength'].to_float(),
             invars['Smooth'].to_float(),
             'vec4(0.0)',
-            self.view_position()(),
-            q(), l(), c())
+            self.view_position(),
+            q, l, c)
         return code, dict(Quadratic=q, Linear=l, Constant=c)
 
     def curve_rgb(self, invars, props):
@@ -932,16 +932,16 @@ class NodeTreeShaderGenerator:
         code = "curves_rgb({}, {}, {}, {});".format(
             invars['Fac'].to_float(),
             invars['Color'].to_color4(),
-            ramp(),
-            out())
+            ramp,
+            out)
         return code, dict(Color=out)
 
     ## Vector nodes
 
     def bump(self, invars, props):
         normal = invars['Normal'].to_vec3()
-        if normal == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
-            normal = self.facingnormal()()
+        if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.facingnormal()
         self.model_view_matrix_inverse() # ensure it's set up
         out = self.tmp('vec3')
         code = "node_bump({}, {}, {}, {}, {}, {}, {});".format(
@@ -949,9 +949,9 @@ class NodeTreeShaderGenerator:
             invars['Distance'].to_float(),
             invars['Height'].to_float(),
             normal,
-            self.view_position()(),
+            self.view_position(),
             str(float(props['invert'])),
-            out())
+            out)
         return code, dict(Normal=out)
 
     def mapping(self, invars, props):
@@ -982,7 +982,7 @@ class NodeTreeShaderGenerator:
             tuple(props['max']),
             float(props['use_min']),
             float(props['use_max']),
-            out())
+            out)
         return code, dict(Vector=out)
 
     def normal(self, invars, props):
@@ -991,15 +991,15 @@ class NodeTreeShaderGenerator:
         code = "normal_new_shading({}, vec3{}, {}, {});".format(
             invars['Normal'].to_vec3(),
             tuple(props['normal']),
-            outnor(), outdot())
+            outnor, outdot)
         return code, dict(Normal=outnor, Dot=outdot)
 
     def normal_map(self, invars, props):
         # TODO OPTIMIZE: Avoid vec_math_mix if strength is always 1
         color0 = invars['Color'].to_vec3()
         # TODO: Should we reuse temp normals?
-        nor0 = self.tmp('vec3')()
-        nor1 = self.tmp('vec3')()
+        nor0 = self.tmp('vec3')
+        nor1 = self.tmp('vec3')
 
         out = self.tmp('vec3')
         space = props['space']
@@ -1009,25 +1009,25 @@ class NodeTreeShaderGenerator:
             space = space[8:]
 
         if space == 'TANGENT':
-            nor2 = self.tmp('vec3')()
-            nor3 = self.tmp('vec3')()
+            nor2 = self.tmp('vec3')
+            nor3 = self.tmp('vec3')
             code = [
                 "color_to_{}normal_new_shading({}, {});".format(
                     blender_normal, color0, nor0),
                 "node_normal_map({}, {}, {}, {});".format(
-                    self.attr_tangent(props['uv_map'])(),
-                    self.facingnormal()(),
+                    self.attr_tangent(props['uv_map']),
+                    self.facingnormal(),
                     nor0, nor1),
                 "vec_math_mix(max(0.0, {}), {}, {}, {});".format(
                     invars['Strength'].to_float(),
                     nor1,
-                    self.facingnormal()(),
+                    self.facingnormal(),
                     nor2),
                 "direction_transform_m4v3({}, {}, {});".format(
                     nor2,
-                    self.view_matrix_inverse()(),
+                    self.view_matrix_inverse(),
                     nor3),
-                "{} = normalize({});".format(out(), nor3),
+                "{} = normalize({});".format(out, nor3),
             ]
         elif space == 'WORLD':
             code = [
@@ -1036,23 +1036,23 @@ class NodeTreeShaderGenerator:
                 "vec_math_mix(max(0.0, {}), {}, {}, {});".format(
                     invars['Strength'].to_float(),
                     nor0,
-                    self.view2world_v3(self.facingnormal())(),
+                    self.view2world_v3(self.facingnormal()),
                     nor1),
-                "{} = normalize({});".format(out(), nor1),
+                "{} = normalize({});".format(out, nor1),
             ]
         elif space == 'OBJECT':
-            nor2 = self.tmp('vec3')()
+            nor2 = self.tmp('vec3')
             code = [
                 "color_to_{}normal_new_shading({}, {});".format(
                     blender_normal, color0, nor0),
                 "direction_transform_m4v3({}, {}, {});".format(
-                    nor0, self.object_matrix()(), nor1),
+                    nor0, self.object_matrix(), nor1),
                 "vec_math_mix(max(0.0, {}), {}, {}, {});".format(
                     invars['Strength'].to_float(),
                     nor1,
-                    self.view2world_v3(self.facingnormal())(),
+                    self.view2world_v3(self.facingnormal()),
                     nor2),
-                "{} = normalize({});".format(out(), nor2),
+                "{} = normalize({});".format(out, nor2),
             ]
         return '\n    '.join(code), dict(Normal=out)
 
@@ -1063,20 +1063,20 @@ class NodeTreeShaderGenerator:
         code = "curves_vec({}, {}, {}, {});".format(
             invars['Fac'].to_float(),
             invars['Vector'].to_vec3(),
-            ramp(),
-            out())
+            ramp,
+            out)
         return code, dict(Vector=out)
 
     def vect_transform(self, invars, props):
         # TODO: Point mode yields different results for some reason
         invar = invars['Vector']
         combo = props['convert_from'] + '_' + props['convert_to']
-        if combo == 'OBJECT_WORLD': mat = self.object_matrix()()
-        elif combo == 'WORLD_OBJECT': mat = self.object_matrix_inverse()()
-        elif combo == 'WORLD_CAMERA': mat = self.view_matrix()()
-        elif combo == 'CAMERA_WORLD': mat = self.view_matrix_inverse()()
-        elif combo == 'OBJECT_CAMERA': mat = self.model_view_matrix()()
-        elif combo == 'CAMERA_OBJECT': mat = self.model_view_matrix_inverse()()
+        if combo == 'OBJECT_WORLD': mat = self.object_matrix()
+        elif combo == 'WORLD_OBJECT': mat = self.object_matrix_inverse()
+        elif combo == 'WORLD_CAMERA': mat = self.view_matrix()
+        elif combo == 'CAMERA_WORLD': mat = self.view_matrix_inverse()
+        elif combo == 'OBJECT_CAMERA': mat = self.model_view_matrix()
+        elif combo == 'CAMERA_OBJECT': mat = self.model_view_matrix_inverse()
         else: # Both are the same, don't do anything
             return '', dict(Vector=invar)
         transform_type = 'point' if props['vector_type'] == 'POINT' else 'direction'
@@ -1085,18 +1085,18 @@ class NodeTreeShaderGenerator:
         trans_in = invar
         if props['convert_from'] == 'CAMERA':
             trans_in = self.tmp('vec3')
-            code.append("invert_z({}, {});".format(invar.to_vec3(), trans_in()))
+            code.append("invert_z({}, {});".format(invar.to_vec3(), trans_in))
         trans_out = self.tmp('vec3')
         code.append("{}_transform_m4v3({}, {}, {});".format(
-            transform_type, trans_in.to_vec3(), mat, trans_out()))
+            transform_type, trans_in.to_vec3(), mat, trans_out))
         out = trans_out
         if props['convert_to'] == 'CAMERA':
             out = self.tmp('vec3')
-            code.append("invert_z({}, {});".format(trans_out(), out()))
+            code.append("invert_z({}, {});".format(trans_out, out))
         nor_out = out
         if props['vector_type'] == 'NORMAL':
             nor_out = self.tmp('vec3')
-            code.append("{} = normalize({});".format(nor_out(), out()))
+            code.append("{} = normalize({});".format(nor_out, out))
         return '\n    '.join(code), dict(Vector=nor_out)
 
     ## Converter nodes
@@ -1105,7 +1105,7 @@ class NodeTreeShaderGenerator:
         out = self.tmp('color4')
         code = "node_blackbody({}, {});".format(
             invars['Temperature'].to_float(),
-            out())
+            out)
         return code, dict(Color=out)
 
     def valtorgb(self, invars, props): # A.K.A. Color ramp
@@ -1114,8 +1114,8 @@ class NodeTreeShaderGenerator:
         out_alpha = self.tmp('float')
         code = "valtorgb({}, {}, {}, {});".format(
             invars['Fac'].to_float(),
-            ramp(),
-            out(), out_alpha())
+            ramp,
+            out, out_alpha)
         return code, dict(Color=out, Alpha=out_alpha)
 
     def combhsv(self, invars, props):
@@ -1124,7 +1124,7 @@ class NodeTreeShaderGenerator:
             invars['H'].to_float(),
             invars['S'].to_float(),
             invars['V'].to_float(),
-            out())
+            out)
         return code, dict(Color=out)
 
     def combrgb(self, invars, props):
@@ -1132,7 +1132,7 @@ class NodeTreeShaderGenerator:
         g = invars['G'].to_float()
         b = invars['B'].to_float()
         out = self.tmp('color4')
-        code = "combine_rgb({}, {}, {}, {});".format(r, g, b, out())
+        code = "combine_rgb({}, {}, {}, {});".format(r, g, b, out)
         outputs = dict(Image=out)
         return code, outputs
 
@@ -1141,7 +1141,7 @@ class NodeTreeShaderGenerator:
         y = invars['Y'].to_float()
         z = invars['Z'].to_float()
         out = self.tmp('vec3')
-        code = "combine_xyz({}, {}, {}, {});".format(x, y, z, out())
+        code = "combine_xyz({}, {}, {}, {});".format(x, y, z, out)
         outputs = dict(Vector=out)
         return code, outputs
 
@@ -1171,7 +1171,7 @@ class NodeTreeShaderGenerator:
         in1 = invars['Value'].to_float()
         in2 = invars['Value$1'].to_float()
         out = self.tmp('float')
-        code = self.math_ops[props['operation']].format(out(), in1, in2)
+        code = self.math_ops[props['operation']].format(out, in1, in2)
         outputs = dict(Value=out)
         return code, outputs
 
@@ -1179,7 +1179,7 @@ class NodeTreeShaderGenerator:
         out = self.tmp('float')
         code = "rgbtobw({}, {});".format(
             invars['Color'].to_color4(),
-            out())
+            out)
         return code, dict(Val=out)
 
     def sephsv(self, invars, props):
@@ -1188,7 +1188,7 @@ class NodeTreeShaderGenerator:
         v = self.tmp('float')
         code = "separate_hsv({}, {}, {}, {});".format(
             invars['Color'].to_color4(),
-            h(), s(), v())
+            h, s, v)
         return code, dict(H=h, S=s, V=v)
 
     def seprgb(self, invars, props):
@@ -1219,7 +1219,7 @@ class NodeTreeShaderGenerator:
         in2 = invars['Vector$1'].to_vec3()
         out = self.tmp('vec3')
         val = self.tmp('float')
-        code = self.vec_math_ops[props['operation']].format(in1, in2, out(), val())
+        code = self.vec_math_ops[props['operation']].format(in1, in2, out, val)
         outputs = dict(Vector=out, Value=val)
         return code, outputs
 
@@ -1230,7 +1230,7 @@ class NodeTreeShaderGenerator:
         out = self.tmp('color4')
         code = "node_wavelength({}, {});".format(
             invars['Wavelength'].to_float(),
-            out())
+            out)
         return code, dict(Color=out)
 
     ## Others
