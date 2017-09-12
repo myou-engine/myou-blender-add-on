@@ -19,9 +19,10 @@ class LayoutDemoPanel(bpy.types.Panel):
         scene = context.scene
 
         col = layout.column(align=True)
-        split = col.split(percentage=0.9, align=True)
-        split.prop(scene, "myou_export_folder", text='Export path')
-        split.operator("myou.select_export_path", text='', icon='FILE_FOLDER')
+        # split = col.split(percentage=0.9, align=True)
+        # split.prop(scene, "myou_export_folder", text='Export path')
+        # split.operator("myou.select_export_path", text='', icon='FILE_FOLDER')
+        col.prop(scene.render, "filepath", text='Export path')
 
         row = col.row(align=True)
         row.label(text="Export folder name:")
@@ -174,12 +175,12 @@ class DoExport(bpy.types.Operator):
                 popup_message('Save the file or provide an export name')
                 return {'FINISHED'}
             outname = bpy.data.filepath.replace(os.sep,'/').rsplit('/',1)[1].rsplit('.',1)[0]
-        if bpy.data.is_saved and not scene.myou_export_folder:
-            scene.myou_export_folder = '//'
-        if bpy.data.is_saved and scene.myou_export_folder \
-                and not scene.myou_export_folder.startswith('//'):
+        if bpy.data.is_saved and not scene.render.filepath:
+            scene.render.filepath = '//'
+        if bpy.data.is_saved and scene.render.filepath \
+                and not scene.render.filepath.startswith('//'):
             try:
-                scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
+                scene.render.filepath = bpy.path.relpath(scene.render.filepath)
             except:
                 # Windows doesn't support relative paths for different drives
                 pass
@@ -190,7 +191,7 @@ class DoExport(bpy.types.Operator):
                 context.window_manager.progress_begin(0,10000)
                 bpy.context.window_manager.progress_update(0)
                 exporter.export_myou(
-                    os.path.join(bpy.path.abspath(scene.myou_export_folder), outname), scene)
+                    os.path.join(bpy.path.abspath(scene.render.filepath), outname), scene)
             except Exception as e:
                 context.window_manager.progress_end()
                 popup_message('Error: '+str(e)+' (see console for details)')
