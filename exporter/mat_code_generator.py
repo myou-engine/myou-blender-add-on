@@ -1202,7 +1202,7 @@ class NodeTreeShaderGenerator:
         return code, dict(H=h, S=s, V=v)
 
     def seprgb(self, invars, props):
-        v = invars['Vector'].to_color4();
+        v = invars['Image'].to_color4();
         r = Variable("({}).r".format(v), 'float')
         g = Variable("({}).g".format(v), 'float')
         b = Variable("({}).b".format(v), 'float')
