@@ -1196,6 +1196,11 @@ def export_myou(path, scn):
     textures_path = join(full_dir, 'textures')
     sounds_path = join(full_dir, 'sounds')
 
+    try_mkdir(full_dir)
+    try_mkdir(scenes_path)
+    try_mkdir(textures_path)
+    try_mkdir(sounds_path)
+
     if os.path.exists(full_dir):
         if 0:
             # Delete whole folder
@@ -1224,10 +1229,6 @@ def export_myou(path, scn):
                 if tex not in used_textures and os.path.isfile(tex_abs):
                     os.remove(tex_abs)
     try:
-        try_mkdir(full_dir)
-        try_mkdir(scenes_path)
-        try_mkdir(textures_path)
-        try_mkdir(sounds_path)
         for scene in bpy.data.scenes:
             used_data = search_scene_used_data(scene)
             scn_dir = join(scenes_path, scene.name)
