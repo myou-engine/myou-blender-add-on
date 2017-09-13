@@ -1182,6 +1182,8 @@ class NodeTreeShaderGenerator:
         in2 = invars['Value$1'].to_float()
         out = self.tmp('float')
         code = self.math_ops[props['operation']].format(out, in1, in2)
+        if props['use_clamp']:
+            code += '\n    {0} = clamp({0}, 0.0, 1.0);'.format(out)
         outputs = dict(Value=out)
         return code, outputs
 
