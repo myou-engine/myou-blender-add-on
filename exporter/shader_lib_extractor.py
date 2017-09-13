@@ -15,6 +15,8 @@ defines = '''
 '''
 
 replacements = [
+    # workaround for android glitch in some phones such as the Pixel
+    ('gl_FrontFacing', 'true'),
 
     ('''/* These are needed for high quality bump mapping */
 #version 130
