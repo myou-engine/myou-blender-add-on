@@ -102,12 +102,12 @@ def export_node(node, ramps):
         inp = out['inputs'][unique_socket_name(input)] = {}
         socket_with_possible_value = input
         if input.links:
-            socket_with_possible_value = None
             link = input.links[0]
             while link and link.is_valid and link.from_node.type == 'REROUTE':
                 links = link.from_node.inputs[0].links
                 link = links[0] if links else None
             if link and link.is_valid:
+                socket_with_possible_value = None
                 inp['link'] = {
                     'node':link.from_node.name,
                     'socket':unique_socket_name(link.from_socket),
