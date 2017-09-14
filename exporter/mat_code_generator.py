@@ -522,6 +522,10 @@ class NodeTreeShaderGenerator:
         return '', dict(Generated=generated, Normal=normal, UV=uv, Object=object,
                         Camera=camera, Window=window, Reflection=reflection)
 
+    def uvmap(self, invars, props):
+        uv = self.uv(props['uv_map'])
+        return '', dict(UV=uv)
+
     ## Output nodes ##
 
     def output_material(self, invars, props):
