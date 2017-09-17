@@ -1,4 +1,12 @@
-import os, zipfile, requests, subprocess, tempfile
+import os, zipfile, subprocess, tempfile
+try:
+    import requests
+    has_requests = True
+except:
+    has_requests = False
+    import traceback
+    print(traceback.format_exc())
+    print("WARNING: There was an error when loading requests")
 
 ASTC_RGBA_FORMATS = {
     '4x4': 0x93B0,'5x4': 0x93B1,'5x5': 0x93B2,'6x5': 0x93B3,'6x6': 0x93B4,
@@ -19,6 +27,8 @@ else:
     astc_binary = os.path.join(plugin_dir,'bin','refreshed-astc-encoder-master','Binary','MacOS','astcenc')
 
 def download_astc_tools_if_needed():
+    if not has_requests:
+        return
     if not os.path.exists(astc_binary):
         print("Downloading ASTC encoder from github.com/Kirpich30000")
         # supplying our own cert root avoid an issue in linux and mac;
