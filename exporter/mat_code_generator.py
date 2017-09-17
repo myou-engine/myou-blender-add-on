@@ -419,7 +419,7 @@ class NodeTreeShaderGenerator:
         outview = self.tmp('vec3')
         outdepth = self.tmp('float')
         outdist = self.tmp('float')
-        code = "camera({}, {}, {}, {});".format(self.proj_position3(), outview, outdepth, outdist)
+        code = "camera({}, {}, {}, {});".format(self.view_position(), outview, outdepth, outdist)
         outputs = dict(View_Vector=outview, View_Z_Depth=outdepth, View_Distance=outdist)
         return code, outputs
 
