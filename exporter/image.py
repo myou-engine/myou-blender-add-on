@@ -65,7 +65,6 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
         raise Exception("Destination path is not a directory: "+dest_path)
 
     pack_generated_images(used_data)
-    non_alpha_images = get_non_alpha_images(used_data)
 
     # For compatibility with old .blends you need to add
     # 'skip_texture_conversion' to the active scene
@@ -77,6 +76,9 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
         print('Img:', image.name)
         if image.source == 'VIEWER':
             raise ValueError('You are using a render result as texture, please save it as image first.')
+
+        image_hash = get_image_hash(image)
+        file_name_base = image_hash
 
         # Find settings in textures. Since there's no UI in Blender for
         # custom properties of images, we'll look at them in textures.
@@ -105,13 +107,19 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
         real_path = bpy.path.abspath(image.filepath)
         tmp_filepath = None
         path_exists = os.path.isfile(real_path)
-        # input_path is for format encoders that only understand png, jpg
+        # get_png_or_jpg is a function for format encoders that only understand png, jpg
+        # TODO: Priorize packed image?
         if path_exists and (image.file_format in ['PNG','JPEG'] or image.source == 'MOVIE'):
-            input_path = real_path
+            get_png_or_jpg = lambda: real_path
         else:
-            input_path = tmp_filepath = tempfile.mktemp('.png')
-            save_image(image, tmp_filepath, 'PNG')
-        uses_alpha = image not in non_alpha_images
+            def f():
+                nonlocal tmp_filepath
+                if tmp_filepath is None:
+                    tmp_filepath = tempfile.mktemp('.png')
+                    save_image(image, tmp_filepath, 'PNG')
+                return tmp_filepath
+            get_png_or_jpg = f # is this necessary? just in case
+        uses_alpha = image['has_alpha'] # assigned in get_image_hash()
         is_sRGB = not used_data['image_is_normal_map'].get(image.name, False)
         if is_sRGB:
             print('Image',image.name,'is sRGB')
@@ -161,11 +169,17 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
                     if scene.myou_export_ASTC:
                         if not astc_binary_checked:
                             download_astc_tools_if_needed()
-                        file_name = image.name + '.astc'
+                        fast = ''
+                        quality = 'exhaustive'
+                        if scene.myou_export_tex_quality=='FAST':
+                            fast = '-fast'
+                            quality = 'veryfast'
+                        file_name = file_name_base + fast + '.astc'
                         exported_path = os.path.join(dest_path, file_name)
-                        quality = 'veryfast' if scene.myou_export_tex_quality=='FAST' else 'exhaustive'
-                        format_enum = encode_astc(input_path, exported_path,
-                            scene.myou_export_astc_mode, quality, is_sRGB)
+                        if not exists(exported_path):
+                            encode_astc(get_png_or_jpg(), exported_path,
+                                scene.myou_export_astc_mode, quality, is_sRGB)
+                        format_enum = get_astc_format_enum(scene.myou_export_astc_mode, is_sRGB)
                         # TODO: query exported size?
                         image_info['formats']['astc'].append({
                             'width': image.size[0], 'height': image.size[1],
@@ -186,13 +200,13 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
                         (image.file_format == out_format or skip_conversion) and \
                         lod_level is None
                     if just_copy_file:
-                        file_name = image.name + '.' + out_ext
+                        file_name = file_name_base + '.' + out_ext
                         exported_path = os.path.join(dest_path, file_name)
                         # The next 2 lines are only necessary for skip_conversion
                         out_ext = image.filepath_raw.split('.')[-1]
                         image['exported_extension'] = out_ext
-
-                        shutil.copy(real_path, exported_path)
+                        if not exists(exported_path):
+                            shutil.copy(real_path, exported_path)
                         image_info['formats'][out_format.lower()].append({
                             'width': image.size[0], 'height': image.size[1],
                             'file_name': file_name, 'file_size': fsize(exported_path),
@@ -204,9 +218,11 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
                                 width = height = lod_level
                             else:
                                 width, height = lod_level
-                            file_name = image.name + '-{w}x{h}.{e}'.format(w=width, h=height, e=out_ext)
+                            file_name = file_name_base + '-{w}x{h}.{e}'.format(w=width, h=height, e=out_ext)
                             exported_path = os.path.join(dest_path, file_name)
-                            save_image(image, exported_path, out_format, resize=(width, height))
+                            if not exists(exported_path):
+                                print('doesnt exist',exported_path)
+                                save_image(image, exported_path, out_format, resize=(width, height))
                             image_info['formats'][out_format.lower()].append({
                                 'width': width, 'height': height,
                                 'file_name': file_name,
@@ -215,9 +231,10 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
 
                             print('Image resized to '+str(lod_level)+' and exported as '+out_format)
                         else:
-                            file_name = image.name + '.' + out_ext
+                            file_name = file_name_base + '.' + out_ext
                             exported_path = os.path.join(dest_path, file_name)
-                            save_image(image, exported_path, out_format)
+                            if not exists(exported_path):
+                                save_image(image, exported_path, out_format)
                             image_info['formats'][out_format.lower()].append({
                                 'width': image.size[0], 'height': image.size[1],
                                 'file_name': file_name, 'file_size': fsize(exported_path),
@@ -227,11 +244,12 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
                     raise Exception('Image not found: ' + image.name + ' path: ' + real_path)
         elif image.source == 'MOVIE' and path_exists:
             out_ext = image.filepath_raw.split('.')[-1]
-            file_name = image.name + '.' + out_ext
+            file_name = file_name_base + '.' + out_ext
             exported_path = os.path.join(dest_path, file_name)
             image['exported_extension'] = out_ext
             if path_exists:
-                shutil.copy(real_path, exported_path)
+                if not exists(exported_path):
+                    shutil.copy(real_path, exported_path)
                 file_format = image.file_format.lower()
                 file_name_extension = file_name.split('.')[-1].lower()
 
@@ -285,37 +303,33 @@ def pack_generated_images(used_data):
             image.filepath = ''
             os.unlink(tmp_filepath)
 
-def get_non_alpha_images(used_data):
-    non_alpha_images = []
-    for image in used_data['images']:
-        # TODO: also check if any use_alpha of textures is enabled
-        if not image.use_alpha:
-            non_alpha_images.append(image)
-        elif not bpy.context.scene.get('skip_texture_conversion') \
-                and bpy.context.scene.myou_export_JPEG_compress == 'COMPRESS':
-            # If it's not a format known to not have alpha channel,
-            # make sure it has an alpha channel at all
-            # by saving it as PNG and parsing the meta data
-            if image.file_format not in ['JPEG', 'TIFF'] and image.frame_duration < 2:
-                path = bpy.path.abspath(image.filepath)
-                if image.file_format == 'PNG' and os.path.isfile(path):
-                    if not png_file_has_alpha(path):
-                        non_alpha_images.append(image)
-                elif image.packed_file or os.path.isfile(path):
-                    tmp_filepath = tempfile.mktemp('.png')
-                    save_image(image, tmp_filepath, 'PNG')
-                    if not png_file_has_alpha(tmp_filepath):
-                        non_alpha_images.append(image)
-                    os.unlink(tmp_filepath)
-            else:
-                non_alpha_images.append(image)
+def image_has_alpha(image):
+    # TODO: also check if any use_alpha of textures is enabled
+    if not image.use_alpha:
+        return False
+    elif not bpy.context.scene.get('skip_texture_conversion') \
+            and bpy.context.scene.myou_export_JPEG_compress == 'COMPRESS':
+        # If it's not a format known to not have alpha channel,
+        # make sure it has an alpha channel at all
+        # by saving it as PNG and parsing the meta data
+        if image.file_format not in ['JPEG', 'TIFF'] and image.frame_duration < 2:
+            path = bpy.path.abspath(image.filepath)
+            # TODO: swap conditions?
+            if image.file_format == 'PNG' and os.path.isfile(path):
+                return png_file_has_alpha(path)
+            elif image.packed_file or os.path.isfile(path):
+                tmp_filepath = tempfile.mktemp('.png')
+                save_image(image, tmp_filepath, 'PNG')
+                has_alpha = png_file_has_alpha(tmp_filepath)
+                os.unlink(tmp_filepath)
+                return has_alpha
         else:
-            # export as quick as possible
-            if image.file_format == 'JPEG':
-                non_alpha_images.append(image)
-    return non_alpha_images
+            return False
+    else:
+        return image.file_format != 'JPEG'
 
 def png_file_has_alpha(file_path):
+    # TODO: Read from packed file?
     try:
         file = open(file_path, 'rb')
         file.seek(8, 0)
@@ -344,3 +358,63 @@ import base64
 def file_path_to_data_uri(path, type):
     data = base64.b64encode(open(path, 'rb').read()).decode().replace('\n', '')
     return 'data:image/'+type.lower()+';base64,'+data
+
+from struct import unpack
+def get_crcs_from_png_data(data):
+    pos = 8
+    length = data[pos:pos+4]
+    crcs = b''
+    while len(length) == 4:
+        l = unpack('>I', length)[0]
+        crcs += data[pos+8+l:pos+12+l]
+        pos += 12+l
+        length = data[pos:pos+4]
+    return crcs
+
+from os.path import exists, getmtime
+import time
+from bpy.path import abspath
+import hashlib, codecs
+def get_image_hash(image):
+    recompute_hash = True
+    filename = abspath(image.filepath)
+    if 'image_hash' in image:
+        # get date (from file or packed crc)
+        # if packed
+        #    if png, get crc date
+        #    else, get file date or blend date
+        # else, get file date
+        date = 0
+        if image.packed_file:
+            if image.file_format == 'PNG':
+                crc = get_crcs_from_png_data(image.packed_file.data)
+                if crc == image.get('packed_crc', b''):
+                    date = image['packed_crc_date']
+                else:
+                    image['packed_crc'] = crc
+                    image['packed_crc_date'] = date = time.time()
+            elif not exists(filename) and exists(bpy.data.filepath):
+                filename = bpy.data.filepath
+        if date == 0 and exists(filename):
+            date = getmtime(filename)
+        recompute_hash = date > image['hash_date']
+    if recompute_hash:
+        # for our use case,
+        # MD5 is good enough, fast enough and available natively
+        if image.packed_file:
+            digest = hashlib.md5(image.packed_file.data).digest()
+        elif exists(filename):
+            md5 = hashlib.md5()
+            file = open(filename, 'rb')
+            chunk = file.read(1048576)
+            while chunk:
+                md5.update(chunk)
+                chunk = file.read(1048576)
+            digest = md5.digest()
+        # convert digest to unpadded base64url
+        hash = codecs.encode(digest, 'base64').strip(b'=\n') \
+            .replace(b'+',b'-').replace(b'/',b'_').decode()
+        image['image_hash'] = hash
+        image['hash_date'] = time.time()
+        image['has_alpha'] = image_has_alpha(image)
+    return image['image_hash']

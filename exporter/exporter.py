@@ -802,7 +802,8 @@ def ob_to_json(ob, scn, check_cache, used_data):
 
     game_properties = {}
     for k,v in ob.items():
-        if k not in ['modifiers_were_applied', 'zindex', 'cycles', 'cycles_visibility', '_RNA_UI']:
+        if k not in ['modifiers_were_applied', 'zindex', 'cycles', 'cycles_visibility', '_RNA_UI'] \
+                and not isinstance(v, bytes):
             if hasattr(v, 'to_list'):
                 v = v.to_list()
             elif hasattr(v, 'to_dict'):
@@ -1206,28 +1207,11 @@ def export_myou(path, scn):
             # Delete whole folder
             shutil.rmtree(full_dir, ignore_errors=False)
         else:
-            # Delete scene folders to be exported, and unused textures
+            # Delete scene folders to be exported
             for scene in bpy.data.scenes:
                 scn_dir = join(scenes_path, scene.name)
                 if os.path.exists(scn_dir):
                     shutil.rmtree(scn_dir, ignore_errors=False)
-            used_textures = set()
-            for old_scene in os.listdir(join(full_dir, 'scenes')):
-                json_path = join(full_dir, 'scenes', old_scene, 'all.json')
-                if os.path.exists(json_path):
-                    jsonf = open(json_path)
-                    textures = [img['file_name']
-                        for tex in json.load(jsonf) if tex['type'] == 'TEXTURE'
-                            for fmt in tex['formats'].values()
-                                for img in fmt
-                                    if hasattr(img, 'keys') and 'file_name' in img
-                    ]
-                    used_textures.update(textures)
-                    jsonf.close()
-            for tex in os.listdir(textures_path):
-                tex_abs = join(textures_path, tex)
-                if tex not in used_textures and os.path.isfile(tex_abs):
-                    os.remove(tex_abs)
     try:
         for scene in bpy.data.scenes:
             used_data = search_scene_used_data(scene)
@@ -1252,6 +1236,24 @@ def export_myou(path, scn):
                     shutil.copy(apath, join(full_dir, oname))
                 else:
                     print("Warning: File doesn't exist: "+apath)
+        # Delete unused textures
+        used_textures = set()
+        for scene_name in os.listdir(join(full_dir, 'scenes')):
+            json_path = join(full_dir, 'scenes', scene_name, 'all.json')
+            if os.path.exists(json_path):
+                jsonf = open(json_path)
+                textures = [img['file_name']
+                    for tex in json.load(jsonf) if tex['type'] == 'TEXTURE'
+                        for fmt in tex['formats'].values()
+                            for img in fmt
+                                if hasattr(img, 'keys') and 'file_name' in img
+                ]
+                used_textures.update(textures)
+                jsonf.close()
+        for tex in os.listdir(textures_path):
+            tex_abs = join(textures_path, tex)
+            if tex not in used_textures and os.path.isfile(tex_abs):
+                os.remove(tex_abs)
     except:
         import datetime
         # shutil.move(full_dir, full_dir+'_FAILED_'+str(datetime.datetime.now()).replace(':','-').replace(' ','_').split('.')[0])

@@ -135,7 +135,7 @@ def export_node(node, ramps):
         if converter_func:
             value = converter_func(value)
         if hasattr(value, 'bl_rna'):
-            print("Warning: No conversion possible for class",value.__class__.__name__)
+            # print("Warning: No conversion possible for class",value.__class__.__name__)
             value = None
         out_props[prop] = value
         #print(' ', prop, repr(value))

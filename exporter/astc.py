@@ -28,6 +28,12 @@ def download_astc_tools_if_needed():
     if os.name != 'nt':
         os.chmod(astc_binary, 0o777)
 
+def get_astc_format_enum(mode, is_sRGB):
+    if is_sRGB:
+        return ASTC_SRGB_FORMATS[mode]
+    else:
+        return ASTC_RGBA_FORMATS[mode]
+
 def encode_astc(in_path, out_path, mode, quality, is_sRGB):
     # quality: veryfast fast medium thorough exhaustive
     process = subprocess.Popen([astc_binary, '-cs' if is_sRGB else '-cl',
@@ -36,8 +42,3 @@ def encode_astc(in_path, out_path, mode, quality, is_sRGB):
     process.wait()
     if process.returncode != 0:
         raise Exception(' '.join([str(x) for x in ["astcenc failed with return code",process.returncode,"when encoding",in_path]]))
-    if is_sRGB:
-        return ASTC_SRGB_FORMATS[mode]
-    else:
-        return ASTC_RGBA_FORMATS[mode]
-    
