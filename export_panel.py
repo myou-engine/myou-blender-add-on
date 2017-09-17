@@ -184,6 +184,10 @@ class DoExport(bpy.types.Operator):
             except:
                 # Windows doesn't support relative paths for different drives
                 pass
+        export_path = bpy.path.abspath(scene.render.filepath).replace('/',os.sep).replace('\\',os.sep)
+        # since we're using scene.render.filepath now, it can have a filename
+        # and the end which should be ignored
+        export_path = export_path.rsplit(os.sep, 1)[0] + os.sep
         if scene.myou_export_goto_start_timeline:
             bpy.ops.screen.frame_jump(end=False)
         def f(x):
@@ -191,7 +195,7 @@ class DoExport(bpy.types.Operator):
                 context.window_manager.progress_begin(0,10000)
                 bpy.context.window_manager.progress_update(0)
                 exporter.export_myou(
-                    os.path.join(bpy.path.abspath(scene.render.filepath), outname), scene)
+                    os.path.join(export_path, outname), scene)
             except Exception as e:
                 context.window_manager.progress_end()
                 popup_message('Error: '+str(e)+' (see console for details)')
