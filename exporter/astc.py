@@ -1,4 +1,4 @@
-import os, zipfile, urllib.request, subprocess
+import os, zipfile, requests, subprocess, tempfile
 
 ASTC_RGBA_FORMATS = {
     '4x4': 0x93B0,'5x4': 0x93B1,'5x5': 0x93B2,'6x5': 0x93B3,'6x6': 0x93B4,
@@ -21,10 +21,18 @@ else:
 def download_astc_tools_if_needed():
     if not os.path.exists(astc_binary):
         print("Downloading ASTC encoder from github.com/Kirpich30000")
-        tool_zip, http_msg = urllib.request.urlretrieve(
-            'https://github.com/Kirpich30000/refreshed-astc-encoder/archive/master.zip')
-        zipfile.ZipFile(tool_zip).extractall(os.path.join(plugin_dir,'bin'))
-        os.unlink(tool_zip)
+        # supplying our own cert root avoid an issue in linux and mac;
+        # an alternative that also works is looking for one of these files:
+        # /etc/ssl/certs/ca-bundle.crt
+        # /etc/ssl/certs/ca-certificates.crt
+        req = requests.get('https://github.com/Kirpich30000/refreshed-astc-encoder/archive/master.zip',
+            stream=True, verify=os.path.join(plugin_dir,'exporter','DigiCertHighAssuranceEVRootCA.crt'))
+        if req.status_code != 200:
+            raise Exception("Error %i when downloading ASTC encoder from github" % req.status_code)
+        tmp = tempfile.mktemp('.zip')
+        open(tmp, 'wb').write(req.raw.read())
+        zipfile.ZipFile(open(tmp, 'rb')).extractall(os.path.join(plugin_dir,'bin'))
+        os.unlink(tmp)
     if os.name != 'nt':
         os.chmod(astc_binary, 0o777)
 
