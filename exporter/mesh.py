@@ -135,10 +135,13 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
                 m.show_viewport = False
 
         # Apply auto-smooth as a modifier
+        triangulate_mod = None
         auto_smooth_mod = None
         if ob.data.use_auto_smooth:
-            auto_smooth_mod = ob.modifiers.new('auto-smooth', 'EDGE_SPLIT')
-            auto_smooth_mod.use_edge_sharp = False
+            triangulate_mod = ob.modifiers.new('auto-smooth-tri', 'TRIANGULATE')
+            triangulate_mod.quad_method = 'SHORTEST_DIAGONAL'
+            auto_smooth_mod = ob.modifiers.new('auto-smooth-split', 'EDGE_SPLIT')
+            auto_smooth_mod.use_edge_sharp = True
             auto_smooth_mod.split_angle = ob.data.auto_smooth_angle
 
         # This applies modifiers (it fails sometimes with booleans)
@@ -147,6 +150,7 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
         # Remove auto_smooth_mod
         if auto_smooth_mod:
             bpy.ops.object.modifier_remove(modifier=auto_smooth_mod.name)
+            bpy.ops.object.modifier_remove(modifier=triangulate_mod.name)
 
         ob.modifiers.foreach_set('show_viewport', mods)
         if ob.get('smooth'):
