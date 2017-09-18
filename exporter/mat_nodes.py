@@ -34,8 +34,9 @@ RAMP_SIZE = 256
 def get_rgba_curve_hash(mapping, ramps):
     mapping.initialize()
     arr = array('B', [0]*RAMP_SIZE*4)
-    pixel = 1/RAMP_SIZE
-    pos = pixel*0.5
+    # put pixels of the extremes to the extremes instead of in half a pixel
+    pixel = 1/(RAMP_SIZE-1)
+    pos = 0
     r,g,b,a = mapping.curves
     for i in range(RAMP_SIZE):
         i4 = i<<2
