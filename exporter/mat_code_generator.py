@@ -829,7 +829,7 @@ class NodeTreeShaderGenerator:
 
         bsdf_name = bsdf_name.replace('anisotropic_', 'aniso_')
         self.code.append("env_sampling_{}(0.0, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});".format(
-            bsdf_name, self.view_position(), self.view_matrix_inverse(), self.model_view_matrix(),
+            bsdf_name, self.view_position(), self.view_matrix_inverse(), self.view_matrix(),
             normal, tangent, roughness, ior, sigma, toon_size, toon_smooth,
             anisotropy, aniso_rotation, ao_factor, env_sampling_out))
 
