@@ -601,6 +601,17 @@ def ob_to_json(ob, scn, check_cache, used_data):
             ob['zindex'] = 1
         data['zindex'] = ob['zindex']
 
+        if hasattr(ob, 'probe_type'):
+            data['material_defines'] = material_defines = {}
+            real_probe_ob = ob
+            while real_probe_ob and real_probe_ob.probe_type == 'OBJECT'\
+                    and real_probe_ob.probe_object:
+                real_probe_ob = real_probe_ob.probe_object
+            if real_probe_ob and real_probe_ob.probe_type == 'PLANE':
+                # by default defines without value have the value 0
+                # but in this case it doesn't matter and 1 feels more correct than null
+                material_defines['PLANAR_PROBE'] = 1
+
     elif obtype=='CURVE':
         curves = []
         for c in ob.data.splines:

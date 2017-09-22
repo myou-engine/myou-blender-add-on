@@ -133,6 +133,20 @@ class NodeTreeShaderGenerator:
         # If it has varname already, it means it was already declared elsewhere
         uniforms = ['uniform {} {};'.format(v.glsl_type(), v)
             for u,v in self.uniforms.values() if 'varname' not in u]
+
+        # CLIPPING_PLANE (TODO: move elsewhere)
+        clip_head = [
+            '#ifdef CLIPPING_PLANE',
+            'uniform vec4 unf_clipping_plane;',
+            '#endif',
+        ]
+        clip_body = [
+            '#ifdef CLIPPING_PLANE',
+            'if(dot({}, unf_clipping_plane)<0.0) discard;'\
+                .format(self.view_position().to_vec4()),
+            '#endif',
+        ]
+
         return '\n'.join(
             ['#if __VERSION__ >= 130',
             'out vec4 glOutColor;',
@@ -141,10 +155,12 @@ class NodeTreeShaderGenerator:
             '#else',
             '#define VARYING varying',
             '#endif']+
+            clip_head+
             varyings+
             uniforms+
             ['void main(){']+
             ['    '+self.join_code(
+                clip_body+
                 self.tmp_vars+
                 self.code)]+
             ['}']
