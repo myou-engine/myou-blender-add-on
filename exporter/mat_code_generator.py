@@ -204,7 +204,10 @@ class NodeTreeShaderGenerator:
         # pprint(node)
         if not hasattr(self, node['type'].lower()):
             pprint(node)
-            raise Exception("Code for node {} not found".format(node['type']))
+            parent = self
+            while parent.parent_tree:
+                parent = parent.parent_tree
+            raise Exception("Code for node {} not found\nMaterial: {}".format(node['type'], parent.tree['material_name']))
         code, outputs = getattr(self, node['type'].lower())(invars, node.get('properties'))
         self.code.append(code)
         self.node_cache[id(node)] = outputs
@@ -836,10 +839,12 @@ class NodeTreeShaderGenerator:
                 col_by_strength = self.shade_mul_value_v3(strength, lamp_color)
                 light2 = self.shade_mul_value(visifac, col_by_strength)
                 if lamp['lamp_type'] not in ['POINT', 'HEMI'] and lamp['use_shadow']:
+                    # NOTE: We're always using shadow_vsm
+                    # because the simple shadow is impossible in WebGL
                     if lamp['shadow_buffer_type'] == 'VARIANCE':
                         shadow = self.shadow_vsm(lamp['name'], shade_normal, lv)
                     else:
-                        raise Exception("Unsupported shadow: "+lamp['shadow_buffer_type'])
+                        shadow = self.shadow_simple(lamp['name'], shade_normal, lv)
                     light2 = self.shade_mul_value(shadow, light2)
                 total_light = self.shade_madd_clamped(total_light, light, light2)
 
@@ -897,6 +902,22 @@ class NodeTreeShaderGenerator:
                 shadow_proj,
                 shadow_bias,
                 bleed_bias,
+                shade_inp,
+            ))[0]
+
+    def shadow_simple(self, lamp_name, shade_normal, lv):
+        shade_inp = self.get_op_cache(['float'],
+            "shade_inp({}, {}, {{}});".format(shade_normal, lv))[0]
+        shadow_map = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_MAP', datatype='sampler2D'))
+        shadow_proj = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_PROJ', datatype='mat4'))
+        shadow_bias = self.uniform(dict(lamp=lamp_name, type='LAMP_SHADOW_BIAS', datatype='float'))
+        bleed_bias = self.uniform(dict(lamp=lamp_name, type='LAMP_BLEED_BIAS', datatype='float'))
+        return self.get_op_cache(['float'],
+            "test_shadowbuf({}, {}, {}, {}, {}, {{}});".format(
+                self.view_position(),
+                shadow_map,
+                shadow_proj,
+                shadow_bias,
                 shade_inp,
             ))[0]
 

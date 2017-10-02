@@ -689,6 +689,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
             'falloff_distance': ob.data.distance,
             'shadow': getattr(ob.data, 'use_shadow', False),
             'shadow_bias': getattr(ob.data, 'shadow_buffer_bias', 0.001),
+            'shadow_buffer_type': getattr(ob.data, 'ge_shadow_buffer_type', 'VARIANCE'),
             'bleed_bias': getattr(ob.data, 'shadow_buffer_bleed_bias', 0.1),
             'tex_size': getattr(ob.data, 'shadow_buffer_size', 512),
             'frustum_size': getattr(ob.data, 'shadow_frustum_size', 0),

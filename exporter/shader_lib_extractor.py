@@ -32,9 +32,12 @@ replacements = [
     ('gl_NormalMatrixInverse','mat3(1)'),
     ('gl_NormalMatrix','mat3(1)'),
 
+    # "simple" shadows, they're impossible without shadow2D[Proj]
+
+    ('result = shadow2DProj(shadowmap, co).x;',
+      '{result = texture2DProj(shadowmap, co).x;\n'
+      'result = smoothstep(co.z, co.z+0.05, result);}'),
     # old shaders
-    ('shadow2DProj(shadowmap, co).x',
-            'step(co.z,texture2D(shadowmap, co.xy).x)'),
     ('gl_LightSource[i].position','vec3(0,0,0)'),
     ('gl_LightSource[i].diffuse','vec3(0,0,0)'),
     ('gl_LightSource[i].specular','vec3(0,0,0)'),
