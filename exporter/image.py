@@ -14,7 +14,7 @@ type_to_ext = {'JPEG': 'jpg', 'TIFF': 'tif', 'TARGA': 'tga'}
 astc_binary_checked = False
 
 def previous_POT(x):
-    x = max(0, x)
+    if x<=0: return 0
     return int(pow(2, floor(log(x)/log(2))))
 
 def save_image(image, path, new_format, resize=None):
@@ -84,7 +84,7 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
         # custom properties of images, we'll look at them in textures.
         # Alternatively we'll find global settings in the scene as "texture_lod_levels"
         tex_with_settings = None
-        for tex in used_data['image_users'][image.name]:
+        for tex in used_data['image_texture_slots'][image.name]:
             if 'lod_levels' in tex:
                 if not tex_with_settings:
                     tex_with_settings = tex
@@ -142,7 +142,7 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
             'use_mipmap': None,
         }
 
-        num_tex_users = len(used_data['image_users'][image.name])
+        num_tex_users = len(used_data['image_texture_slots'][image.name])
         print('Exporting image:', image.name, 'with', num_tex_users, 'texture users')
         if uses_alpha:
             print('image:', image.name, 'is using alpha channel')
@@ -241,7 +241,11 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
                             })
                             print('Image exported as '+out_format)
                 else:
-                    raise Exception('Image not found: ' + image.name + ' path: ' + real_path)
+                    raise Exception('\n'.join(['Image not found:',
+                        'Name: ' + image.name,
+                        'Path: ' + real_path,
+                        'Materials: ' + ', '.join(m.name for m in used_data['image_materials'][image.name]),
+                    ]))
         elif image.source == 'MOVIE' and path_exists:
             out_ext = image.filepath_raw.split('.')[-1]
             file_name = file_name_base + '.' + out_ext
@@ -411,6 +415,12 @@ def get_image_hash(image):
                 md5.update(chunk)
                 chunk = file.read(1048576)
             digest = md5.digest()
+        else:
+            # file not found, always reset hash next time
+            image['image_hash'] = ''
+            image['hash_date'] = 0
+            image['has_alpha'] = True
+            return
         # convert digest to unpadded base64url
         hash = codecs.encode(digest, 'base64').strip(b'=\n') \
             .replace(b'+',b'-').replace(b'/',b'_').decode()

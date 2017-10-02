@@ -198,7 +198,7 @@ class DoExport(bpy.types.Operator):
                     os.path.join(export_path, outname), scene)
             except Exception as e:
                 context.window_manager.progress_end()
-                popup_message('Error: '+str(e)+' (see console for details)')
+                popup_message('Error:', str(e)+'\n(see console for details)')
                 raise e
             bpy.context.window_manager.progress_end()
         scene_update_post_tasks.append(f)
@@ -244,9 +244,12 @@ class No(bpy.types.Operator):
 class PopupMenu(bpy.types.Menu):
     bl_label = ""
     bl_idname = "OBJECT_MT_customized_popup_menu"
+    lines = []
 
     def draw(self, context):
         layout = self.layout
+        for l in self.lines:
+            layout.label(l)
         if menu_type == 'yes no':
             layout.operator('yes.')
             layout.operator('no.')
@@ -262,8 +265,9 @@ classes = [
     PopupMenu,
 ]
 
-def popup_message(msg):
-    PopupMenu.bl_label = msg
+def popup_message(header, msg=''):
+    PopupMenu.bl_label = header
+    PopupMenu.lines = msg.split('\n')
     bpy.utils.unregister_class(PopupMenu)
     bpy.utils.register_class(PopupMenu)
     menu_type = 'ok'

@@ -33,13 +33,15 @@ def search_scene_used_data(scene):
     used_data = {
         'objects': [],
         'materials': [],
+        'material_objects': defaultdict(set),
         'material_use_tangent': {},
         # materials don't have layers, but we'll assume their presence in layers
         # to determine which "this layer only" lights to remove
         'material_layers': {},
         'textures': [],
         'images': [],
-        'image_users': defaultdict(list),
+        'image_texture_slots': defaultdict(list),
+        'image_materials': defaultdict(set),
         'image_is_normal_map': {},
         'meshes': [],
         'actions': [],
@@ -64,6 +66,7 @@ def search_scene_used_data(scene):
                 for s in ob.material_slots:
                     if hasattr(s,'material') and s.material:
                         add_material(s.material, ob.layers, i+1)
+                        used_data['material_objects'][s.material.name].add(ob)
 
                 add_animation_data(ob.animation_data, ob, i+1)
                 if ob.type=='MESH' and ob.data and ob.data.shape_keys:
@@ -83,14 +86,15 @@ def search_scene_used_data(scene):
             used_data['materials'].append(m)
             used_data['material_layers'][m.name] = list(layers)
             print('    '*i+'Mat:', m.name)
-            for s,enabled in zip(m.texture_slots, m.use_textures): # internal/game only
-                if enabled and hasattr(s, 'texture') and s.texture:
-                    use_normal_map = getattr(s.texture, 'use_normal_map', False)
-                    add_texture(s.texture,i+1, use_normal_map)
-                    use_normal_maps = use_normal_maps or use_normal_map
+            if scene.render.engine in ['BLENDER_RENDER', 'BLENDER_GAME']:
+                for s,enabled in zip(m.texture_slots, m.use_textures):
+                    if enabled and hasattr(s, 'texture') and s.texture:
+                        use_normal_map = getattr(s.texture, 'use_normal_map', False)
+                        add_texture(s.texture, m, i+1, use_normal_map)
+                        use_normal_maps = use_normal_maps or use_normal_map
             add_animation_data(m.animation_data, m, i+1)
             if m.use_nodes and m.node_tree:
-                use_normal_maps = search_in_node_tree(m.node_tree, layers, i-1) or use_normal_maps
+                use_normal_maps = search_in_node_tree(m.node_tree, m, layers, i-1) or use_normal_maps
                 add_animation_data(m.node_tree.animation_data, m.node_tree, i+1)
             used_data['material_use_tangent'][m.name] = used_data['material_use_tangent'].get(m.name, False) or use_normal_maps
         mlayers = used_data['material_layers'][m.name]
@@ -99,16 +103,16 @@ def search_scene_used_data(scene):
         return used_data['material_use_tangent'].get(m.name, False)
 
     # NOTE: It assumes that there is no cyclic dependencies in node groups.
-    def search_in_node_tree(tree, layers, i=0):
+    def search_in_node_tree(tree, mat, layers, i=0):
         use_normal_map = False
         for n in tree.nodes:
             if (n.bl_idname == 'ShaderNodeMaterial' or n.bl_idname == 'ShaderNodeExtendedMaterial') and n.material:
                 use_normal_map = add_material(n.material, layers, i+1) or use_normal_map
             elif n.bl_idname == 'ShaderNodeTexture' and n.texture:
                 use_normal_map = use_normal_map or getattr(n.texture, 'use_normal_map', False)
-                add_texture(n.texture,i+1)
+                add_texture(n.texture, mat, i+1)
             elif n.bl_idname in ('ShaderNodeTexImage', 'ShaderNodeTexEnvironment') and n.image:
-                add_image(n.image,i+1)
+                add_image(n.image, mat, i+1)
                 if n.color_space == 'NONE' and \
                     any([link.to_node.type == 'NORMAL_MAP' for link in n.outputs[0].links]):
                         used_data['image_is_normal_map'][n.image.name] = True
@@ -122,19 +126,20 @@ def search_scene_used_data(scene):
                     use_normal_map = True
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
-                    search_in_node_tree(n.node_tree, layers, i+1)
+                    search_in_node_tree(n.node_tree, mat, layers, i+1)
         return use_normal_map
 
-    def add_texture(t,i=0, is_normal=False): # internal/game only
+    def add_texture(t, mat, i=0, is_normal=False): # internal/game only
         if not t in used_data['textures']:
             print('    '*i+'Tex:', t.name)
             used_data['textures'].append(t)
             if t.type == 'IMAGE' and t.image:
-                add_image(t.image,i+1)
-                used_data['image_users'][t.image.name].append(t)
+                add_image(t.image, mat, i+1)
+                used_data['image_texture_slots'][t.image.name].append(t)
                 used_data['image_is_normal_map'][t.image.name] = is_normal
 
-    def add_image(i,indent=0):
+    def add_image(i, mat, indent=0):
+        used_data['image_materials'][i.name].add(mat)
         if not i in used_data['images']:
             print('    '*indent+'Img:', i.name)
             used_data['images'].append(i)
@@ -171,7 +176,7 @@ def search_scene_used_data(scene):
 
     # Export background textures(s)
     if scene.world.use_nodes:
-        search_in_node_tree(scene.world.node_tree, None)
+        search_in_node_tree(scene.world.node_tree, scene.world, None)
 
     for ob in scene.objects:
         if not ob.parent:
@@ -1123,7 +1128,7 @@ def whole_scene_to_json(scn, used_data, textures_path):
                 })
     # Export shader lib, textures (images), materials, actions
     image_json = image.export_images(textures_path, used_data, add_progress)
-    mat_json = [mat_to_json(mat, scn, used_data['material_layers'][mat.name])
+    mat_json = [mat_to_json(mat, scn, used_data)
                     for mat in used_data['materials']]
     act_json = [action_to_json(action, used_data['action_users'][action.name])
                     for action in used_data['actions']]

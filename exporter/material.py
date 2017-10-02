@@ -7,7 +7,8 @@ from . import mat_binternal
 from . import mat_nodes
 from . import mat_code_generator
 
-def mat_to_json(mat, scn, layers):
+def mat_to_json(mat, scn, used_data):
+    layers = used_data['material_layers'][mat.name]
     if scn.render.engine != 'CYCLES':
         # Blender internal or Blender game
 
@@ -39,6 +40,10 @@ def mat_to_json(mat, scn, layers):
 
         # NodeTreeShaderGenerator uses platform-agnostic data
         # so we convert the tree and the lamps
+        if not mat.use_nodes:
+            raise Exception("Can't export material without enabled nodes.\n"
+                'Material: '+mat.name+'\n'+
+                'Objects: ' + ', '.join(list(m.name for m in used_data['material_objects'][mat.name])[:20]))
         tree = mat_nodes.export_nodes_of_material(mat)
         ramps = tree['ramps']
         lamps = []
