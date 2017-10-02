@@ -603,11 +603,16 @@ def ob_to_json(ob, scn, check_cache, used_data):
 
         if hasattr(ob, 'probe_type'):
             data['material_defines'] = material_defines = {}
-            real_probe_ob = ob
-            while real_probe_ob and real_probe_ob.probe_type == 'OBJECT'\
-                    and real_probe_ob.probe_object:
-                real_probe_ob = real_probe_ob.probe_object
-            if real_probe_ob and real_probe_ob.probe_type == 'PLANE':
+            is_plane = ob.probe_type == 'PLANE'
+            if not is_plane:
+                # follow the probe chain to see if it's a plane
+                real_probe_ob = ob
+                while real_probe_ob and real_probe_ob.probe_type == 'OBJECT'\
+                        and real_probe_ob.probe_object:
+                    real_probe_ob = real_probe_ob.probe_object
+                if real_probe_ob and real_probe_ob.probe_type == 'PLANE':
+                    is_plane = True
+            if is_plane:
                 # by default defines without value have the value 0
                 # but in this case it doesn't matter and 1 feels more correct than null
                 material_defines['PLANAR_PROBE'] = 1
@@ -837,7 +842,9 @@ def ob_to_json(ob, scn, check_cache, used_data):
             clip_end=ob.probe_clip_end,
             parallax_type=ob.probe_parallax_type,
             parallax_volume=getattr(ob.probe_parallax_volume, 'name', ''),
-            reflection_plane=getattr(ob.probe_reflection_plane, 'name', ''),
+            # it may crash if we read this when not needed
+            reflection_plane=getattr(ob.probe_reflection_plane, 'name', '') \
+                if ob.probe_type=='PLANE' else '',
         )
 
     parent = ob.parent.name if ob.parent else None
