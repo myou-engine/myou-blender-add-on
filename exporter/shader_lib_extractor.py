@@ -54,6 +54,8 @@ replacements = [
     (re.compile(r'if \(depth > (\d)\) {'), r'if (depth > \1.0) {'),
     ('fac = 1;', 'fac = 1.0;'),
     ('outv = -v;','outv = vec3(0.0)-v;'),
+    # 2.79
+    ('Cdlum > 0 ?', 'Cdlum > 0.0 ?'),
 
     # PBR branch
     ('#extension GL_EXT_gpu_shader4: enable', ''),
