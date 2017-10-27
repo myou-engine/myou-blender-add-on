@@ -7,6 +7,7 @@ from math import *
 from json import dumps, loads
 from collections import defaultdict
 from .astc import *
+from . import progress
 tempdir  = tempfile.gettempdir()
 
 type_to_ext = {'JPEG': 'jpg', 'TIFF': 'tif', 'TARGA': 'tga'}
@@ -54,7 +55,7 @@ def save_image(image, path, new_format, resize=None):
         raise Exception("Couldn't export image: "+image.name+". Please replace it or disable the texture slot.")
 
 
-def export_images(dest_path, used_data, add_progress=lambda x:x):
+def export_images(dest_path, used_data):
     '''
     This converts/copies all used images and returns encoded JSON with *textures*
     '''
@@ -72,7 +73,7 @@ def export_images(dest_path, used_data, add_progress=lambda x:x):
     skip_conversion = scene.get('skip_texture_conversion')
 
     for image in used_data['images']:
-        add_progress()
+        progress.add()
         print('Img:', image.name)
         if image.source == 'VIEWER':
             raise ValueError('You are using a render result as texture, please save it as image first.')
