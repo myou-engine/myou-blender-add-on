@@ -353,6 +353,8 @@ def ob_to_json(ob, scn, check_cache, used_data):
     scn = scn or [scn for scn in bpy.data.scenes if ob.name in scn.objects][0]
     scn['game_tmp_path'] = get_scene_tmp_path(scn) # TODO: have a changed_scene function
     data = {}
+    game_properties = {}
+    
     #print(ob.type,ob.name)
     obtype = ob.type
 
@@ -793,6 +795,10 @@ def ob_to_json(ob, scn, check_cache, used_data):
     else:
         obtype = 'EMPTY'
         data = {'mesh_radius': ob.empty_draw_size}
+        game_properties = {
+            '_empty_draw_type': ob.empty_draw_type,
+            '_empty_draw_size': ob.empty_draw_size,
+        }
 
     if 'particles' in ob:
         data['particles'] = []
@@ -822,7 +828,6 @@ def ob_to_json(ob, scn, check_cache, used_data):
     # used for physics properties
     first_mat = ob.material_slots and ob.material_slots[0].material
 
-    game_properties = {}
     for k,v in ob.items():
         if k not in ['modifiers_were_applied', 'zindex', 'cycles', 'cycles_visibility', '_RNA_UI'] \
                 and not isinstance(v, bytes):
@@ -871,7 +876,7 @@ def ob_to_json(ob, scn, check_cache, used_data):
         'rot_mode': rot_mode,
         'properties': game_properties,
         'scale': list(ob.scale),
-        'offset_scale': [1,1,1],
+        'offset_scale': [1,1,1], # TODO: no longer used, remove when sure
         'matrix_parent_inverse': sum(list(map(list, ob.matrix_parent_inverse.transposed())),[]),
         'dimensions': list(ob.dimensions),
         'color' : list(ob.color),
