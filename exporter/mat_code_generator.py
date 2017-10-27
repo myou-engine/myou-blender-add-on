@@ -666,7 +666,7 @@ class NodeTreeShaderGenerator:
         return code, dict(Color=out, Fac=fac)
 
     def tex_checker(self, invars, props):
-        co = invars['Vector']
+        co = invars['Vector'].to_vec3()
         if str(co) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             co = self.orco()
         out = self.tmp('color4')
