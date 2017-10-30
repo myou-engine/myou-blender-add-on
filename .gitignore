@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 bin/refreshed-astc-encoder-master/
 *.kate-swp
+.directory

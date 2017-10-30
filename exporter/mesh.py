@@ -49,10 +49,8 @@ def multiuser_apply_local_transform(ob):
 
 
 
-def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
-    print("\n------------------------------")
-    print("exporting:",ob.name)
-    print("------------------------------")
+def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=False):
+    print("Exporting object (mesh): {} ({})".format(ob.name, ob.data.name))
 
     global_undo = bpy.context.user_preferences.edit.use_global_undo
     orig_mode = bpy.context.mode
@@ -121,9 +119,7 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
     is_bone_child = \
         ob.parent and ob.parent.type=='ARMATURE' and ob.parent_type == 'BONE' and ob.parent_bone
 
-    apply_modifiers = ob['modifiers_were_applied'] = \
-        not ob.data.shape_keys and \
-        not ob.particle_systems
+    apply_modifiers = not ob.data.shape_keys and not ob.particle_systems
 
     if apply_modifiers:
         # print('Applying modifiers:')
@@ -313,7 +309,7 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
         # t=perf_t(t)
 
         # Split faces by material
-        print("Splitting faces by material:")
+        # print("Splitting faces by material:")
         faces = bm.faces
         if hasattr(faces, 'ensure_lookup_table'):
             faces.ensure_lookup_table()
@@ -376,7 +372,7 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
     poly_len = len(ob.data.polygons)
     if poly_len:
         avg_poly_area = sum(areas)/poly_len
-        print(avg_poly_area)
+        # print('avg_poly_area:', avg_poly_area)
     else:
         avg_poly_area = GOOGOL
         print("WARNING: This mesh has no polygons. The avg_poly_area of this object will be estimated as 1 Googol (1e100)")
@@ -781,15 +777,14 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
     #t=perf_t(t)
 
     bindata = binv+bini
-    file_hash = hashlib.sha1(bindata).hexdigest()
-    fname = file_hash + '.mesh'
+    mesh_file = scn['game_tmp_path'] + file_hash + '.mesh'
 
     # writing mesh
-    open(scn['game_tmp_path'] + fname,'wb').write(bindata)
+    open(mesh_file,'wb').write(bindata)
 
     # writing compressed mesh
     bingzip = gzip.compress(bindata)
-    open(scn['game_tmp_path'] + fname+'.gz','wb').write(bingzip)
+    open(mesh_file+'.gz','wb').write(bingzip)
 
     # TODO: delete old file?
     #t=perf_t(t)
@@ -813,7 +808,7 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
         else:
             elements.append(['weights'])
 
-    tris_count = len(indices)/3
+    tri_count = len(indices)/3
 
     ob.hide = hide
     ob.data = orig_data
@@ -822,7 +817,7 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
     ob.active_material_index = orig_ami
     scn.objects.active = active
 
-    ob.data['export_data'] = dumps({
+    export_data = {
         'stride': stride_bytes,
         'elements': elements,
         'offsets': sum(map(list, zip(v_offsets, i_offsets)), []),
@@ -832,17 +827,14 @@ def convert_mesh(ob, scn, split_parts=1, sort=True, export_tangents=False):
         'shape_multiplier': 1/shape_multiplier,
         'uv_multiplier': 1/uv_multiplier,
         'avg_poly_area': avg_poly_area,
-        'tris_count': tris_count,
+        'tri_count': tri_count,
         'center': [(min_v[0]+max_v[0])*0.5, (min_v[1]+max_v[1])*0.5, (min_v[2]+max_v[2])*0.5],
         'bbox': [min_v[0], min_v[1], min_v[2], max_v[0], max_v[1], max_v[2]],
-    })
-
-    ob.data['exported_name'] = ob.data.name
-    ob.data['cached_file'] = fname
-    ob.data['hash'] = file_hash
-    ob.data['material_indices'] = materials
-
+        # properties below can be deleted before export
+        'material_indices': materials,
+        'can_add_lod': apply_modifiers,
+    }
 
     MODE_OPS[orig_mode]()
     bpy.context.user_preferences.edit.use_global_undo = global_undo
-    return True
+    return export_data

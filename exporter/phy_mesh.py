@@ -4,7 +4,7 @@ from json import loads, dumps
 
 from array import array
 
-def convert_phy_mesh(ob, scn):
+def convert_phy_mesh(ob, scn, file_hash):
     orig_data = ob.data
     print("\n------------------------------")
     print("exporting:",ob.name)
@@ -39,8 +39,6 @@ def convert_phy_mesh(ob, scn):
 
         return False
 
-    file_hash = str(hash(mesh_bytes)).replace('-', 'm')
-
     fname = file_hash + '.mesh'
     fname = fname.replace(os.sep, '/')
 
@@ -51,22 +49,18 @@ def convert_phy_mesh(ob, scn):
     bingzip = gzip.compress(mesh_bytes)
     open(scn['game_tmp_path'] + fname+'.gz','wb').write(bingzip)
 
-    tris_count = len(indices)/3
+    tri_count = len(indices)/3
 
     #restoring original state
     ob.data = orig_data
     scn.objects.active = old_active_object
 
     return {
-        'export_data' :{
-            'stride': 16,
-            'elements': [],
-            'tris_count': tris_count,
-            'offsets': [0,0, vlen*4, len(indices)],
-            'mesh_name': ob.data.name,
-            'hash':file_hash,
-            'all_f': 0,
-        },
-        'cached_file': fname,
-        'hash': file_hash,
+        'stride': 16,
+        'elements': [],
+        'tri_count': tri_count,
+        'offsets': [0,0, vlen*4, len(indices)],
+        'mesh_name': ob.data.name,
+        'hash':file_hash,
+        'all_f': 0,
     }

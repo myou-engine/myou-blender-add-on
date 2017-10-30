@@ -417,12 +417,13 @@ def export_myou(path, scn):
                 shutil.copy(apath, join(sounds_path, name))
             blend_dir = bpy.data.filepath.rsplit(os.sep, 1)[0]#.replace('\\','/')
             for fname in scene.myou_export_copy_files.split(' '):
-                apath = join(blend_dir, fname)
-                oname = fname.replace(os.sep, '/').replace('../','')
-                if fname and os.path.isfile(apath):
-                    shutil.copy(apath, join(full_dir, oname))
-                else:
-                    print("Warning: File doesn't exist: "+apath)
+                if fname:
+                    apath = join(blend_dir, fname)
+                    oname = fname.replace(os.sep, '/').replace('../','')
+                    if os.path.isfile(apath):
+                        shutil.copy(apath, join(full_dir, oname))
+                    else:
+                        print("Warning: File doesn't exist: "+apath)
         # Delete unused textures
         used_textures = set()
         for scene_name in os.listdir(join(full_dir, 'scenes')):

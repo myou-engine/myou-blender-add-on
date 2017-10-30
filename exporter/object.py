@@ -1,15 +1,17 @@
-
+import bpy
 from .mesh import convert_mesh
 from .phy_mesh import convert_phy_mesh
 from .animation import get_animation_data_strips
+from . import mesh_hash
+from . import progress
 from json import dumps, loads
 from collections import defaultdict
 import os
 import re
 from math import *
-from . import progress
+from pprint import pprint
 
-def ob_to_json(ob, scn, used_data, check_cache=True):
+def ob_to_json(ob, scn, used_data):
     progress.add()
     scn = scn or [scn for scn in bpy.data.scenes if ob.name in scn.objects][0]
     data = {}
@@ -20,249 +22,112 @@ def ob_to_json(ob, scn, used_data, check_cache=True):
 
     if obtype=='MESH':
         generate_tangents = any([used_data['material_use_tangent'][m.material.name] for m in ob.material_slots if m.material])
-        if check_cache:
-            print('Checking cache: ',ob.name, scn.name)
-        # TODO: QUIRK: when the scene name is changed, cache is not invalidated
-        # but new file can't be found (should files be moved?)
-        cache_was_invalidated = False
-        def convert(o, sort):
-            nonlocal cache_was_invalidated
-            cached_file = o.data.get('cached_file', 'i_dont_exist').replace('\\','/').rsplit('/',1).pop()
-            invalid_cache = (not os.path.isfile(scn['game_tmp_path'] + cached_file)\
-                or o.data.get('exported_name') != o.data.name)\
-                or 'export_data' not in o.data\
-                or 'avg_poly_area' not in loads(o.data.get('export_data','{}'))
-            if not check_cache or invalid_cache:
-                    cache_was_invalidated = True
-                    split_parts = 1
-                    progress.add()
-                    while not convert_mesh(o, scn, split_parts, sort, generate_tangents):
+        def convert(ob, sort, is_phy=False):
+            hash = mesh_hash.mesh_hash(ob, used_data, [sort, generate_tangents, is_phy])
+            mesh_cache = scn['game_tmp_path'] + hash + '.mesh'
+            metadata_cache = scn['game_tmp_path'] + hash + '.json'
+            if not os.path.isfile(mesh_cache):
+                progress.add()
+                if not is_phy:
+                    split_parts = len(ob.data.vertices)//64000 + 1 # first approximation
+                    export_data = None
+                    while not export_data:
+                        export_data = convert_mesh(ob, scn, hash, split_parts, sort, generate_tangents)
                         if split_parts > 10:
-                            raise Exception("Mesh "+o.name+" is too big.")
+                            raise Exception("Mesh "+ob.name+" is too big.")
                         split_parts += 1
-
-            scn['exported_meshes'][o.data['hash']] = scn['game_tmp_path'] + o.data['cached_file']
-            return get_data_with_materials(o)
-
-        def get_data_with_materials(o):
-            d = loads(o.data['export_data'])
+                else:
+                    export_data = convert_phy_mesh(ob)
+                open(metadata_cache,'wb').write(dumps(export_data).encode())
+            else:
+                export_data = loads(open(metadata_cache,'rb').read().decode())
+            scn['exported_meshes'][hash] = mesh_cache
+            # Calculate materials and passes
             materials = []
             passes = []
-            for i in o.data.get('material_indices', []):
-                n = 'Material'
+            for i in export_data.get('material_indices', []):
+                name = 'EMPTY_MATERIAL_SLOT'
                 pass_ = 0
-                mat = o.material_slots[i:i+1]
-                mat = mat and mat[0]
-                if mat and mat.material:
-                    n = mat.name
-                    if mat.material.use_transparency and \
-                        mat.material.transparency_method == 'RAYTRACE':
+                if i < len(ob.material_slots) and ob.material_slots[i].material:
+                    mat = ob.material_slots[i].material
+                    name = mat.name
+                    if mat.use_transparency and \
+                        mat.transparency_method == 'RAYTRACE':
                             pass_ = 2
-                    elif mat.material.use_transparency and \
-                            mat.material.game_settings.alpha_blend != 'CLIP':
+                    elif mat.use_transparency and \
+                            mat.game_settings.alpha_blend != 'CLIP':
                         pass_ = 1
-                materials.append(n)
+                materials.append(name)
                 passes.append(pass_)
-            d['materials'] = materials or []
-            d['passes'] = passes or [0]
-            return d
+            del export_data['material_indices']
+            export_data['materials'] = materials
+            export_data['passes'] = passes or [0]
+            return export_data
 
         print('\nExporting object', ob.name)
         data = convert(ob, sort=bool(ob.get('sort_mesh', True)))
-        tris_count = loads(ob.data['export_data']).get('tris_count',0)
-        # copying conditions in mesh.py
-        # because of linked meshes
-        modifiers_were_applied = ob.get('modifiers_were_applied',
-            not ob.data.shape_keys and \
-            not ob.particle_systems)
+        tri_count = data.get('tri_count', 0)
 
-        if 'alternative_meshes' in ob:
-            orig_mesh = ob.data
-            data['active_mesh_index'] = ob['active_mesh_index']
-            data['alternative_meshes'] = []
-            for d in ob['alternative_meshes']:
-                ob.data = bpy.data.meshes[d]
-                ob.data['compress_bits'] = orig_mesh.get('compress_bits')
-                ob.data['byte_shapes'] = orig_mesh.get('byte_shapes')
-                ob.data['uv_short'] = orig_mesh.get('uv_short')
-                data['alternative_meshes'].append(convert(ob, sort=False))
-            ob.data = bpy.data.meshes[ob['alternative_meshes'][ob['active_mesh_index']]]
-        elif modifiers_were_applied: # No LoD for alt meshes, meshes with keys, etc
-            if cache_was_invalidated or 'lod_level_data' not in ob.data:
-                # Contains:  (TODO: sorted?)
-                #    [
-                #        {factor: 0.20,
-                #         hash: 'abcdef',
-                #         offsets, uv_multiplier, shape_multiplier}, ...
-                #    ]
+        if data['can_add_lod']: # No LoD for meshes with keys, etc
+            # lod_level_data contains:
+            #    [
+            #        {factor: 0.20,
+            #         hash: 'abcdef',
+            #         offsets, uv_multiplier, shape_multiplier}, ...
+            #    ]
+            # Will be sorted by factor (ratio between original and new tri count)
 
-                lod_level_data = []
-                lod_exported_meshes = {}
+            lod_level_data = []
 
-                if 'phy_mesh' in data:
-                    del data['phy_mesh']
-                phy_lod = ob.get('phy_lod', None)
+            #Exporting lod, phy, embed from modifiers
 
-                # Support two formats of "lod_levels":
-                # - If you put an integer (or string with a number) you'll
-                #   generate as many decimated levels, each half of the previous one
-                #   e.g. 3 generates 3 levels with these factors:
-                #   [0.50, 0.25, 0.125]
-                # - If you put a list of numbers in a string, it will generate
-                #   levels with those factors
-                #   e.g. "[0.2, 0.08]"
-                # In both cases, the level of factor 1 is implicit.
+            lod_modifiers = []
+            phy_modifier = None
+            embed_modifiers = []
 
-                def export_lod_mesh (ob, factor=0):
-                    name = ob.name
-                    orig_data = ob.data
-                    ob.data = lod_mesh = ob.data.copy()
-                    scn.objects.active = ob
-                    lod_data = None
+            for m in ob.modifiers:
+                if m.type == 'DECIMATE':
+                    # Separates modifier names by words and checks
+                    # if any of the words is "lod", "phy" or "embed"
+                    words = re.sub('[^a-zA-Z]', '.', m.name).split('.')
+                    if 'lod' in words:
+                        m.show_viewport = False
+                        lod_modifiers.append(m)
+                    if 'phy' in words:
+                        phy_modifier = m
+                    if 'embed' in words:
+                        embed_modifiers.append(m)
 
-                    if factor:
-                        print('Exporting LoD mesh with factor:', factor)
-                        bpy.ops.object.modifier_add(type='DECIMATE')
-                        ob.modifiers[-1].ratio = factor
-                        ob.modifiers[-1].use_collapse_triangulate = True
+            for m in lod_modifiers:
+                m.show_viewport = True
+                lod_data = convert(ob, True)
+                lod_data['factor'] = lod_data['tri_count']/tri_count
+                lod_level_data.append(lod_data)
+                if m == phy_modifier:
+                    print("This LoD mesh will be used as phy_mesh")
+                    data['phy_mesh'] = lod_data
+                if m in embed_modifiers:
+                    scn['embed_mesh_hashes'][lod_data['hash']] = True
+                    embed_modifiers.remove(m)
+                m.show_viewport = False
 
-                    try:
-                        if not convert_mesh(ob, scn, 1, True, generate_tangents):
-                            raise Exception("Decimated LoD mesh of "+name+" is too big")
+            if phy_modifier and not phy_modifier in lod_modifiers:
+                phy_modifier.show_viewport = True
+                phy_mesh_data = convert(ob, True, True)
+                print('Exported phy mesh with factor:', phy_mesh_data['tri_count']/tri_count)
+                if phy_modifier in embed_modifiers:
+                    scn['embed_mesh_hashes'][phy_mesh_data['hash']] = True
+                    embed_modifiers.remove(m)
+                phy_modifier.show_viewport = False
 
-                        lod_exported_meshes[lod_mesh['hash']] = scn['game_tmp_path'] + lod_mesh['cached_file']
-                        lod_data = get_data_with_materials(ob)
+            if embed_modifiers:
+                print('TODO! Embed mesh modifier without being LoD or Phy')
 
-                        exported_factor = lod_data['tris_count']/tris_count
-                        print('Exported LoD mesh with factor:', exported_factor)
-
-                        # TODO!! This is confusing. Should we copy lod_data
-                        # and then add factor outside?
-                        lod_level_data.append({
-                            'factor': exported_factor,
-                            'hash': lod_data['hash'],
-                            'offsets': lod_data['offsets'],
-                            'uv_multiplier': lod_data['uv_multiplier'],
-                            'shape_multiplier': lod_data['shape_multiplier'],
-                            'avg_poly_area': lod_data.get('avg_poly_area', None),
-                            'materials': lod_data['materials'],
-                            'passes': lod_data['passes'],
-                        })
-                    finally:
-                        if factor:
-                            bpy.ops.object.modifier_remove(modifier=ob.modifiers[-1].name)
-                        ob.data = orig_data
-
-                    return [lod_mesh, lod_data]
-
-                def export_phy_mesh (ob, factor=0):
-                    orig_data = ob.data
-                    ob.data = ob.data.copy()
-                    scn.objects.active = ob
-
-                    if factor:
-                        print ('Exporting phy_mesh with factor:', factor)
-                        bpy.ops.object.modifier_add(type='DECIMATE')
-                        ob.modifiers[-1].ratio = factor
-                        ob.modifiers[-1].use_collapse_triangulate = True
-
-                    try:
-                        phy_data = convert_phy_mesh(ob, scn)
-                        if not phy_data:
-                            raise Exception("Phy LoD mesh is too big")
-                        orig_data['phy_data'] = dumps(phy_data)
-
-                        exported_factor = phy_data['export_data']['tris_count']/tris_count
-                        print('Exported phy mesh with factor:', exported_factor)
-
-                    finally:
-                        if factor:
-                            bpy.ops.object.modifier_remove(modifier=ob.modifiers[-1].name)
-                        ob.data = orig_data
-                    return phy_data
-
-                #Exporting lod, phy, embed from modifiers
-
-                lod_modifiers = []
-                phy_modifier = None
-                embed_modifiers = []
-
-                for m in ob.modifiers:
-                    if m.type == 'DECIMATE':
-                        name = re.sub('[^a-zA-Z]', '.', m.name)
-                        name = name.split('.')
-                        if 'lod' in name:
-                            m.show_viewport = False
-                            lod_modifiers.append(m)
-                        if 'phy' in name:
-                            phy_modifier = m
-                        if 'embed' in name:
-                            embed_modifiers.append(m)
-
-                for m in lod_modifiers:
-                    m.show_viewport = True
-                    lod_mesh, lod_data = export_lod_mesh(ob)
-                    if m == phy_modifier:
-                        print("This LoD mesh will be used as phy_mesh")
-                        ob.data['phy_data'] = dumps({
-                            'export_data': lod_data,
-                            'cached_file': lod_mesh['cached_file'],
-                        })
-                    if m in embed_modifiers:
-                        scn['embed_mesh_hashes'][lod_data['hash']] = True
-                        embed_modifiers.remove(m)
-                    m.show_viewport = False
-
-                if phy_modifier and not phy_modifier in lod_modifiers:
-                    phy_modifier.show_viewport = True
-                    phy_mesh_data = export_phy_mesh(ob)
-                    if phy_modifier in embed_modifiers:
-                        scn['embed_mesh_hashes'][phy_mesh_data['hash']] = True
-                        embed_modifiers.remove(m)
-                    phy_modifier.show_viewport = False
-
-                if embed_modifiers:
-                    print('TODO! Embed mesh modifier without being LoD or Phy')
-
-                #Exporting lod phy from object properties
-                lod_levels = loads(str(ob.get('lod_levels',0)))
-                if not isinstance(lod_levels, (int, list)):
-                    print('WARNING: Invalid lod_levels type. Using lod_levels = 0')
-                    lod_levels = 0
-
-                if not isinstance(lod_levels, list):
-                    lod_levels = [1/pow(2,lod_level+1)
-                        for lod_level in range(lod_levels)]
-
-                if phy_lod and phy_lod not in lod_levels and not phy_modifier:
-                    export_phy_mesh(ob, phy_lod)
-                    print()
-
-                for factor in lod_levels:
-                    lod_mesh, lod_data = export_lod_mesh(ob, factor)
-                    if factor == phy_lod and not phy_modifier:
-                        print("This LoD mesh will be used as phy_mesh")
-                        ob.data['phy_data'] = dumps({
-                            'export_data': lod_data,
-                            'cached_file': lod_mesh['cached_file'],
-                        })
-                    print()
-
-                lod_level_data = sorted(lod_level_data, key=lambda e: e['factor'])
-
-                # end for
-                ob.data['lod_level_data'] = dumps(lod_level_data)
-                ob.data['lod_exported_meshes'] = lod_exported_meshes
-
-            # end cache invalidated
-            data['lod_levels'] = loads(ob.data['lod_level_data'])
-            for k,v in ob.data['lod_exported_meshes'].items():
-                scn['exported_meshes'][k] = v
-            if ob.data.get('phy_data', None):
-                phy_data = loads(ob.data['phy_data'])
-                data['phy_mesh'] = phy_data['export_data']
-                scn['exported_meshes'][phy_data['export_data']['hash']] = scn['game_tmp_path'] + phy_data['cached_file']
-        # end if no alt meshes and modifiers_were_applied
+            data['lod_levels'] = sorted(lod_level_data, key=lambda e: e['factor'])
+        else:
+            print("Note: Not trying to export LoD levels")
+        # end if data['can_add_lod']
+        del data['can_add_lod']
 
         if not 'zindex' in ob:
             ob['zindex'] = 1
@@ -443,15 +308,7 @@ def ob_to_json(ob, scn, used_data, check_cache=True):
                 'rotation': bone.rotation_quaternion[1:]+bone.rotation_quaternion[0:1],
                 'scale': list(bone.scale),
             }
-        if changed or check_cache:
-            data['pose'] = pose
-            # Invalidate all children mesh caches
-            for c in ob.children:
-                if 'exported_name' in c:
-                    del c['exported_name']
-        else:
-            # Send pose only
-            data = {'pose': pose}
+        data['pose'] = pose
     else:
         obtype = 'EMPTY'
         data = {'mesh_radius': ob.empty_draw_size}
@@ -460,15 +317,6 @@ def ob_to_json(ob, scn, used_data, check_cache=True):
             '_empty_draw_size': ob.empty_draw_size,
         }
 
-    if 'particles' in ob:
-        data['particles'] = []
-        for p in ob['particles']:
-            particle = {}
-            for k,v in p.items():
-                if k == 'formula':
-                    v = bpy.data.texts[v].as_string()
-                particle[k] = v
-            data['particles'].append(particle)
     rot_mode = ob.rotation_mode
     if rot_mode=='QUATERNION':
         rot = ob.rotation_quaternion
