@@ -11,11 +11,12 @@ import re
 from math import *
 from pprint import pprint
 
-def ob_to_json(ob, scn, used_data):
+def ob_to_json(ob, scn, used_data, export_pose=True):
     progress.add()
     scn = scn or [scn for scn in bpy.data.scenes if ob.name in scn.objects][0]
     data = {}
     game_properties = {}
+    dimensions = list(ob.dimensions) # to be modified in some cases
 
     #print(ob.type,ob.name)
     obtype = ob.type
@@ -255,26 +256,27 @@ def ob_to_json(ob, scn, used_data):
             depends[bone.name]
         # Each constraint: [function_name, owner idx, target idx, args...]
         # TODO: assuming target is own armature
-        for bone in ob.pose.bones:
-            for c in bone.constraints:
-                if c.type.startswith('COPY_') and c.subtarget:
-                    axes = [int(c.use_x), int(c.use_y), int(c.use_z)]
-                    if axes.count(1)==1 and c.type=='COPY_ROTATION':
-                        con = [c.type.lower()+'_one_axis', bone.name, c.subtarget, axes]
-                    else:
-                        con = [c.type.lower(), bone.name, c.subtarget]
-                    bone_dict[bone.name]['constraints'].append(con)
+        if export_pose:
+            for bone in ob.pose.bones:
+                for c in bone.constraints:
+                    if c.type.startswith('COPY_') and c.subtarget:
+                        axes = [int(c.use_x), int(c.use_y), int(c.use_z)]
+                        if axes.count(1)==1 and c.type=='COPY_ROTATION':
+                            con = [c.type.lower()+'_one_axis', bone.name, c.subtarget, axes]
+                        else:
+                            con = [c.type.lower(), bone.name, c.subtarget]
+                        bone_dict[bone.name]['constraints'].append(con)
 
-                    depends[bone.name].add(c.subtarget)
-                elif c.type == 'STRETCH_TO' and c.subtarget:
-                    bone_dict[bone.name]['constraints'].append(
-                        [c.type.lower(), bone.name, c.subtarget, c.rest_length, c.bulge])
-                    depends[bone.name].add(c.subtarget)
-                elif c.type == 'IK' and c.subtarget:
-                    cl = c.chain_count or 9999
-                    bone_dict[bone.name]['constraints'].append(
-                        [c.type.lower(), bone.name, c.subtarget, c.chain_count, c.iterations])
-                    depends[bone.name].add(c.subtarget)
+                        depends[bone.name].add(c.subtarget)
+                    elif c.type == 'STRETCH_TO' and c.subtarget:
+                        bone_dict[bone.name]['constraints'].append(
+                            [c.type.lower(), bone.name, c.subtarget, c.rest_length, c.bulge])
+                        depends[bone.name].add(c.subtarget)
+                    elif c.type == 'IK' and c.subtarget:
+                        cl = c.chain_count or 9999
+                        bone_dict[bone.name]['constraints'].append(
+                            [c.type.lower(), bone.name, c.subtarget, c.chain_count, c.iterations])
+                        depends[bone.name].add(c.subtarget)
 
         final_order = []
         last = set()
@@ -295,20 +297,19 @@ def ob_to_json(ob, scn, used_data):
         ob.data['ordered_deform_names'] = ordered_deform_names
         data = {'bones': bones, 'unfc': num_deform * 4}
         print("Deform bones:",num_deform,"uniforms",num_deform*4)
-        changed = False
-        str_data = str(data)
-        if ob.data.get('str_data') != str_data:
-            changed = True
-            ob.data['str_data'] = str_data
 
-        pose = {}
-        for bone in ob.pose.bones:
-            pose[bone.name] = {
-                'position': list(bone.location) if not ob.data.bones[bone.name].use_connect else [0,0,0],
-                'rotation': bone.rotation_quaternion[1:]+bone.rotation_quaternion[0:1],
-                'scale': list(bone.scale),
-            }
-        data['pose'] = pose
+        if export_pose:
+            pose = {}
+            for bone in ob.pose.bones:
+                pose[bone.name] = {
+                    'position': list(bone.location) if not ob.data.bones[bone.name].use_connect else [0,0,0],
+                    'rotation': bone.rotation_quaternion[1:]+bone.rotation_quaternion[0:1],
+                    'scale': list(bone.scale),
+                }
+            data['pose'] = pose
+        else:
+            # We don't want varying dimensions to affect mesh hash
+            dimensions = []
     else:
         obtype = 'EMPTY'
         data = {'mesh_radius': ob.empty_draw_size}
@@ -384,7 +385,7 @@ def ob_to_json(ob, scn, used_data):
         'properties': game_properties,
         'scale': list(ob.scale),
         'matrix_parent_inverse': sum(list(map(list, ob.matrix_parent_inverse.transposed())),[]),
-        'dimensions': list(ob.dimensions),
+        'dimensions': dimensions,
         'color' : list(ob.color),
         'parent': parent,
         'parent_bone': ob.parent_bone if parent and ob.parent.type == 'ARMATURE' and ob.parent_type == 'BONE' else '',

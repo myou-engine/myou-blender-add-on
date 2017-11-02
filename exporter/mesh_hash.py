@@ -97,7 +97,8 @@ def mesh_hash(ob, used_data, extra_data):
                     # TODO: Convert meshes too, for booleans etc
                     # but avoiding infinite loops
                     if isinstance(v, Object) and v.type != 'MESH':
-                        v = object.ob_to_json(v, None, used_data)
+                        v = object.ob_to_json(v, None, used_data, export_pose=False)
+                        open('/tmp/b.txt', 'w').write(repr(v))
                     modifier_data.append(repr(v))
     hash.update('|'.join(modifier_data).encode())
 
