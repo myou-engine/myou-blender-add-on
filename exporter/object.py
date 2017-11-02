@@ -378,19 +378,16 @@ def ob_to_json(ob, scn, used_data):
         'scene': scn.name,
         'type': obtype,
         'name': ob.name,
-        'pos': list(ob.matrix_local.translation), # legacy (TODO remove when no longer used)
         'position': list(ob.location),
         'rot': list(rot),
         'rot_mode': rot_mode,
         'properties': game_properties,
         'scale': list(ob.scale),
-        'offset_scale': [1,1,1], # TODO: no longer used, remove when sure
         'matrix_parent_inverse': sum(list(map(list, ob.matrix_parent_inverse.transposed())),[]),
         'dimensions': list(ob.dimensions),
         'color' : list(ob.color),
         'parent': parent,
         'parent_bone': ob.parent_bone if parent and ob.parent.type == 'ARMATURE' and ob.parent_type == 'BONE' else '',
-        'actions': [], # DEPRECATED
         'animation_strips': strips,
         'dupli_group': ob.dupli_group.name
             if ob.dupli_type=='GROUP' and ob.dupli_group else None,
