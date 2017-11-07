@@ -38,7 +38,7 @@ def mesh_hash(ob, used_data, extra_data):
 
     face_sizes = np.empty(len(ob.data.polygons), dtype=np.uint16)
     ob.data.polygons.foreach_get('loop_total', face_sizes)
-    num_indices = face_sizes.sum()
+    num_indices = int(face_sizes.sum())
     hash.update(face_sizes)
 
     # t = perf_t(t)
