@@ -275,7 +275,7 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                     elif c.type == 'IK' and c.subtarget:
                         cl = c.chain_count or 9999
                         bone_dict[bone.name]['constraints'].append(
-                            [c.type.lower(), bone.name, c.subtarget, c.chain_count, c.iterations])
+                            [c.type.lower(), bone.name, c.subtarget, cl, c.iterations])
                         depends[bone.name].add(c.subtarget)
 
         final_order = []
