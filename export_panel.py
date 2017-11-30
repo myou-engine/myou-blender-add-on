@@ -5,6 +5,7 @@ from .exporter import exporter
 from bpy.app.handlers import persistent
 
 scene_update_post_tasks = []
+show_export_options = False
 
 class LayoutDemoPanel(bpy.types.Panel):
     bl_label = "Myou engine export"
@@ -19,10 +20,7 @@ class LayoutDemoPanel(bpy.types.Panel):
         scene = context.scene
 
         col = layout.column(align=True)
-        # split = col.split(percentage=0.9, align=True)
-        # split.prop(scene, "myou_export_folder", text='Export path')
-        # split.operator("myou.select_export_path", text='', icon='FILE_FOLDER')
-        col.prop(scene.render, "filepath", text='Export path')
+        col.prop(scene, "myou_export_folder", text='Export path')
 
         row = col.row(align=True)
         row.label(text="Export folder name:")
@@ -30,115 +28,76 @@ class LayoutDemoPanel(bpy.types.Panel):
         if not scene.myou_export_name_as_blend:
             col.prop(scene, "myou_export_name", text='Export name')
 
-        layout.prop(scene, "myou_export_goto_start_timeline")
-        layout.prop(scene, "myou_export_compress_scene")
-        layout.prop(scene, "myou_export_convert_to_quats")
-        layout.prop(scene, "myou_export_copy_files")
-
-        layout.label(text="Encode textures:")
-        layout.prop(scene, "myou_ensure_pot_textures")
-        layout.prop(scene, "myou_export_tex_quality", expand=True)
-
-        split = layout.split(percentage=0.9, align=True)
-        row = split.row(align=True)
-        row.prop(scene, "myou_export_PNGJPEG")
-        row.prop(scene, "myou_export_JPEG_compress", text='')
-        split.operator("myou.todo", text='', icon='QUESTION')
-        split = layout.split(percentage=0.9, align=True)
-        row = split.row(align=True)
-        row.prop(scene, "myou_export_DXT")
-        row.prop(scene, "myou_export_crunch", text='')
-        split.operator("myou.todo", text='', icon='QUESTION')
-        split = layout.split(percentage=0.9, align=True)
-        row = split.row(align=True)
-        row.prop(scene, "myou_export_ETC1")
-        split.operator("myou.todo", text='', icon='QUESTION')
-        split = layout.split(percentage=0.9, align=True)
-        row = split.row(align=True)
-        row.prop(scene, "myou_export_ETC2")
-        split.operator("myou.todo", text='', icon='QUESTION')
-        split = layout.split(percentage=0.9, align=True)
-        row = split.row(align=True)
-        row.prop(scene, "myou_export_PVRTC")
-        row.prop(scene, "myou_export_pvr_mode", text='')
-        split.operator("myou.todo", text='', icon='QUESTION')
-        split = layout.split(percentage=0.9, align=True)
-        row = split.row(align=True)
-        row.prop(scene, "myou_export_ASTC")
-        row.prop(scene, "myou_export_astc_mode", text='')
-        split.operator("myou.todo", text='', icon='QUESTION')
-
-        layout.operator("myou.set_tex_defaults", text='Reset defaults')
-        layout.operator("myou.todo", text='Generate previews')
-        # col = layout.column(align=True)
-        # col.label('PVRTC and ATSC tools are not included with myou', icon='ERROR')
-        # col.label('Use the buttons below to download the')
-        # col.label('tools and place them in the tool folder')
-        # row = col.row(align=True)
-        # row.operator("wm.url_open", text='Download PVRTC tool', url='https://community.imgtec.com/developers/powervr/installers/')
-        # row.operator("wm.url_open", text='Download ATSC tool', url='')
-        # col.operator("", text='Open tool folder')
-
-        layout.label(text="Export using above options:")
         if getattr(bpy, 'has_reloaded_myou', False):
             layout.operator("scene.myou_dev_reload")
         row = layout.row()
         row.scale_y = 3.0
         row.operator("myou.export", text='Export')
 
-        col = layout.column(align=True)
-        col.label(text="Open exported scene in:")
-        row = col.row(align=True)
-        row.operator("myou.todo", text='Firefox')
-        row.operator("myou.todo", text='Chrome')
-        row.operator("myou.todo", text='IE11/Edge/Safari')
-        row = col.row(align=True)
-        row.operator("myou.todo", text='Mobile browser')
-        row.operator("myou.todo", text='Native')
-        row.operator("myou.todo", text='Mobile native')
-
-class SelectExportPath(bpy.types.Operator):
-    """Select export path"""
-    bl_idname = "myou.select_export_path"
-    bl_label = "Select export path"
-
-    def execute(self, context):
-        def uname():
-            return subprocess.Popen(['uname'], stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
-        # TODO: In all cases, make loop that sends window to front until process
-        # has finished
-        current = bpy.path.abspath(bpy.context.scene.myou_export_folder) or bpy.path.abspath('//')
-        current = os.path.abspath(current)
-        if not os.path.exists(current):
-            current = ''
-        if os.name == 'nt':
-            from . import winutils
-            path = subprocess.Popen(
-                ['powershell','-Command',"""(new-object -COM 'Shell.Application').BrowseForFolder(0,'Select export path',0,0x11).self.path"""],
-                stdout=subprocess.PIPE).communicate()[0].decode().replace('\r\n','')
-            # path = winutils.folder_dialog()
-        elif uname()=='Darwin':
-            # http://mstratman.github.io/cocoadialog/
-            popup_message('TODO: OSX Folder selection dialog with cocoaDialog')
-        elif os.environ.get('KDE_FULL_SESSION'):
-            path = subprocess.Popen(
-                ['kdialog','--getexistingdirectory', current or '~'],
-                stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
+        if not show_export_options:
+            layout.operator("myou.toggle_export_options", text="Show export options")
         else:
-            # TODO: check if file dialog is in foreground in gnome
-            current and os.chdir(current)
-            path = subprocess.Popen(
-                ['zenity','--file-selection','--directory'],
-                stdout=subprocess.PIPE).communicate()[0].decode().replace('\n','')
-        if path:
-            if bpy.data.is_saved:
-                try:
-                    path = bpy.path.relpath(path)
-                except:
-                    # Windows doesn't support relative paths for different drives
-                    pass
-            bpy.context.scene.myou_export_folder = path
-        return {'FINISHED'}
+            layout.operator("myou.toggle_export_options", text="Hide export options")
+            layout.prop(scene, "myou_export_goto_start_timeline")
+            layout.prop(scene, "myou_export_compress_scene")
+            layout.prop(scene, "myou_export_convert_to_quats")
+            layout.prop(scene, "myou_export_copy_files")
+
+            layout.label(text="Encode textures:")
+            layout.prop(scene, "myou_ensure_pot_textures")
+            layout.prop(scene, "myou_export_tex_quality", expand=True)
+
+            split = layout.split(percentage=0.9, align=True)
+            row = split.row(align=True)
+            row.prop(scene, "myou_export_PNGJPEG")
+            row.prop(scene, "myou_export_JPEG_compress", text='')
+            split.operator("myou.todo", text='', icon='QUESTION')
+            split = layout.split(percentage=0.9, align=True)
+            row = split.row(align=True)
+            row.prop(scene, "myou_export_DXT")
+            row.prop(scene, "myou_export_crunch", text='')
+            split.operator("myou.todo", text='', icon='QUESTION')
+            split = layout.split(percentage=0.9, align=True)
+            row = split.row(align=True)
+            row.prop(scene, "myou_export_ETC1")
+            split.operator("myou.todo", text='', icon='QUESTION')
+            split = layout.split(percentage=0.9, align=True)
+            row = split.row(align=True)
+            row.prop(scene, "myou_export_ETC2")
+            split.operator("myou.todo", text='', icon='QUESTION')
+            split = layout.split(percentage=0.9, align=True)
+            row = split.row(align=True)
+            row.prop(scene, "myou_export_PVRTC")
+            row.prop(scene, "myou_export_pvr_mode", text='')
+            split.operator("myou.todo", text='', icon='QUESTION')
+            split = layout.split(percentage=0.9, align=True)
+            row = split.row(align=True)
+            row.prop(scene, "myou_export_ASTC")
+            row.prop(scene, "myou_export_astc_mode", text='')
+            split.operator("myou.todo", text='', icon='QUESTION')
+
+            layout.operator("myou.set_tex_defaults", text='Reset defaults')
+            layout.operator("myou.todo", text='Generate previews')
+            # col = layout.column(align=True)
+            # col.label('PVRTC and ATSC tools are not included with myou', icon='ERROR')
+            # col.label('Use the buttons below to download the')
+            # col.label('tools and place them in the tool folder')
+            # row = col.row(align=True)
+            # row.operator("wm.url_open", text='Download PVRTC tool', url='https://community.imgtec.com/developers/powervr/installers/')
+            # row.operator("wm.url_open", text='Download ATSC tool', url='')
+            # col.operator("", text='Open tool folder')
+
+
+        # col = layout.column(align=True)
+        # col.label(text="Open exported scene in:")
+        # row = col.row(align=True)
+        # row.operator("myou.todo", text='Firefox')
+        # row.operator("myou.todo", text='Chrome')
+        # row.operator("myou.todo", text='IE11/Edge/Safari')
+        # row = col.row(align=True)
+        # row.operator("myou.todo", text='Mobile browser')
+        # row.operator("myou.todo", text='Native')
+        # row.operator("myou.todo", text='Mobile native')
 
 class SetTexDefaults(bpy.types.Operator):
     """Reset texture format options to recommended defaults"""
@@ -172,22 +131,22 @@ class DoExport(bpy.types.Operator):
         outname = scene.myou_export_name
         if scene.myou_export_name_as_blend or not outname:
             if not bpy.data.filepath:
-                popup_message('Save the file or provide an export name')
+                popup_message('Error', 'Save the file or provide an export name')
                 return {'FINISHED'}
             outname = bpy.data.filepath.replace(os.sep,'/').rsplit('/',1)[1].rsplit('.',1)[0]
-        if bpy.data.is_saved and not scene.render.filepath:
-            scene.render.filepath = '//'
-        if bpy.data.is_saved and scene.render.filepath \
-                and not scene.render.filepath.startswith('//'):
+        if bpy.data.is_saved and not scene.myou_export_folder:
+            scene.myou_export_folder = '//'
+        if bpy.data.is_saved and scene.myou_export_folder \
+                and not scene.myou_export_folder.startswith('//'):
             try:
-                scene.render.filepath = bpy.path.relpath(scene.render.filepath)
+                scene.myou_export_folder = bpy.path.relpath(scene.myou_export_folder)
             except:
                 # Windows doesn't support relative paths for different drives
                 pass
-        export_path = bpy.path.abspath(scene.render.filepath).replace('/',os.sep).replace('\\',os.sep)
-        # since we're using scene.render.filepath now, it can have a filename
-        # and the end which should be ignored
-        export_path = export_path.rsplit(os.sep, 1)[0] + os.sep
+        if not bpy.data.filepath and scene.myou_export_folder[:2] == '//':
+            popup_message('Error: Export path is relative (//)', 'Save the file or select a folder')
+            return {'FINISHED'}
+        export_path = bpy.path.abspath(scene.myou_export_folder).replace('/',os.sep).replace('\\',os.sep)
         if scene.myou_export_goto_start_timeline:
             bpy.ops.screen.frame_jump(end=False)
         def f(x):
@@ -256,13 +215,23 @@ class PopupMenu(bpy.types.Menu):
         else:
             layout.operator("ok.")
 
+class ToggleOptions(bpy.types.Operator):
+    """Toggle export options"""
+    bl_idname = "myou.toggle_export_options"
+    bl_label = "Toggle export options"
+
+    def execute(self, context):
+        global show_export_options
+        show_export_options = not show_export_options
+        return {'FINISHED'}
+
 classes = [
     LayoutDemoPanel,
-    SelectExportPath,
     SetTexDefaults,
     DoExport,
     Ok, Yes, No, TODO,
     PopupMenu,
+    ToggleOptions
 ]
 
 def popup_message(header, msg=''):
@@ -286,6 +255,7 @@ def yes_no(msg, _yes_cb, _no_cb):
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+
     bpy.types.Scene.myou_export_goto_start_timeline = BoolProperty(name='Go to start of timeline', default=False)
     bpy.types.Scene.myou_export_compress_scene = BoolProperty(name='Compress scene files', default=True)
     bpy.types.Scene.myou_export_convert_to_quats = BoolProperty(name='Convert all rotations to quaternions', default=False)
@@ -345,7 +315,7 @@ def register():
         description="ASTC block size (affecting size and visual quality)",
         default="6x6") # If you change default, change it also in SetTexDefaults
 
-    bpy.types.Scene.myou_export_folder = StringProperty()
+    bpy.types.Scene.myou_export_folder = StringProperty(default='//', subtype="DIR_PATH")
     bpy.types.Scene.myou_export_name_as_blend = BoolProperty(default=True)
     bpy.types.Scene.myou_export_name = StringProperty()
     bpy.types.Scene.myou_export_copy_files = StringProperty(name='Copy extra files', description='Copy these files after export, relative to .blend file and separated by spaces')
