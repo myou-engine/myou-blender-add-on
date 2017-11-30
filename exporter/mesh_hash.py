@@ -1,7 +1,23 @@
 import bpy
 Object = bpy.types.Object
 # TODO: defer loading numpy?
-import numpy as np
+try:
+    import numpy as np
+    def to_bytes(x): return x
+except ImportError:
+    # make a fake numpy
+    from array import array
+    class np(array):
+        float32 = 'f'
+        uint32 = 'I'
+        uint16 = 'H'
+        uint8 = 'B'
+        def empty(size, dtype):
+            return np(dtype, [0]*size)
+        def sum(self):
+            return sum(self)
+    def to_bytes(x): return x.tobytes()
+
 from hashlib import md5
 from . import object
 
@@ -24,13 +40,13 @@ def mesh_hash(ob, used_data, extra_data):
     # reusing array
     vertices = normals = shape_key = np.empty(vlen*3, dtype=np.float32)
     ob.data.vertices.foreach_get('co', vertices)
-    hash.update(vertices)
+    hash.update(to_bytes(vertices))
     ob.data.vertices.foreach_get('normal', normals)
-    hash.update(normals)
+    hash.update(to_bytes(normals))
     if ob.data.shape_keys:
         for kb in ob.data.shape_keys.key_blocks[1:]:
             kb.data.foreach_get('co', shape_key)
-            hash.update(shape_key)
+            hash.update(to_bytes(shape_key))
     # Something's going on with normals when editing a shape key
     # but it shouoldn't be an issue since they're only used without shape keys
 
@@ -39,36 +55,36 @@ def mesh_hash(ob, used_data, extra_data):
     face_sizes = np.empty(len(ob.data.polygons), dtype=np.uint16)
     ob.data.polygons.foreach_get('loop_total', face_sizes)
     num_indices = int(face_sizes.sum())
-    hash.update(face_sizes)
+    hash.update(to_bytes(face_sizes))
 
     # t = perf_t(t)
 
     indices = np.empty(num_indices, dtype=np.uint32)
     ob.data.polygons.foreach_get('vertices', indices)
-    hash.update(indices)
+    hash.update(to_bytes(indices))
 
     # t = perf_t(t)
 
     # reusing array
     materials = flags = np.empty(len(ob.data.polygons), dtype=np.uint8)
     ob.data.polygons.foreach_get('material_index', materials)
-    hash.update(materials)
+    hash.update(to_bytes(materials))
     ob.data.polygons.foreach_get('use_smooth', flags)
-    hash.update(flags)
+    hash.update(to_bytes(flags))
 
     # TODO: detect if this is necessary by looking at:
     # * auto smooth
     # * edge sharp modifier in _all_ users
     edge_sharp = np.empty(len(ob.data.edges), dtype=np.uint8)
     ob.data.edges.foreach_get('use_edge_sharp', edge_sharp)
-    hash.update(edge_sharp)
+    hash.update(to_bytes(edge_sharp))
 
     # t = perf_t(t)
 
     uv_data = np.empty(num_indices*2, dtype=np.float32)
     for i in range(len(ob.data.uv_layers)):
         ob.data.uv_layers[i].data.foreach_get('uv', uv_data)
-        hash.update(uv_data)
+        hash.update(to_bytes(uv_data))
 
     # t = perf_t(t)
 
@@ -85,7 +101,7 @@ def mesh_hash(ob, used_data, extra_data):
                 groups[i+1] = g.group
                 i += 2
         hash.update('|'.join(ob.vertex_groups.keys()).encode())
-        hash.update(groups)
+        hash.update(to_bytes(groups))
 
     modifier_data = []
     for m in ob.modifiers:
