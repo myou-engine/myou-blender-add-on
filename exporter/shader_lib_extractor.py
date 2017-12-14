@@ -1,5 +1,6 @@
 from pprint import *
 import re
+import json
 
 uniforms = '''
 uniform mat3 rotation_matrix_inverse;
@@ -242,6 +243,15 @@ debug_lib = False
 def set_shader_lib(fragment='', mat=None, scn=None):
     global SHADER_LIB
     if not SHADER_LIB or debug_lib:
+        ## For GPUs unsupported by PBR branch, put an exported scene json in
+        ## /tmp/myou-shader-lib.json and uncomment this code
+        # try:
+        #     for ob in json.load(open('/tmp/myou-shader-lib.json')):
+        #         if ob['type'] == 'SHADER_LIB':
+        #             SHADER_LIB = ob['code']
+        #             return SHADER_LIB
+        # except:
+        #     pass
         if not fragment:
             if mat and scn:
                 import gpu
