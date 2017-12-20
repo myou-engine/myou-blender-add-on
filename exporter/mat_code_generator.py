@@ -135,17 +135,19 @@ class NodeTreeShaderGenerator:
             for u,v in self.uniforms.values() if 'varname' not in u]
 
         # CLIPPING_PLANE (TODO: move elsewhere)
-        clip_head = [
-            '#ifdef CLIPPING_PLANE',
-            'uniform vec4 unf_clipping_plane;',
-            '#endif',
-        ]
-        clip_body = [
-            '#ifdef CLIPPING_PLANE',
-            'if(dot({}, unf_clipping_plane)<0.0) discard;'\
-                .format(self.view_position().to_vec4()),
-            '#endif',
-        ]
+        clip_head = clip_body = []
+        if not self.is_background:
+            clip_head = [
+                '#ifdef CLIPPING_PLANE',
+                'uniform vec4 unf_clipping_plane;',
+                '#endif',
+            ]
+            clip_body = [
+                '#ifdef CLIPPING_PLANE',
+                'if(dot({}, unf_clipping_plane)<0.0) discard;'\
+                    .format(self.view_position().to_vec4()),
+                '#endif',
+            ]
 
         return '\n'.join(
             ['#if __VERSION__ >= 130',
