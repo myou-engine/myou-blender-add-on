@@ -12,7 +12,6 @@ uniform mat4 projection_matrix_inverse;
 
 defines = '''
 #define USE_NEW_SHADING
-#define CORRECTION_NONE
 '''
 
 replacements = [
@@ -77,6 +76,8 @@ replacements = [
     ('(1 /','(1.0 /'),
     (' 1 / ',' 1.0 / '),
     ('- 1)','- 1.0)'),
+    ('- 1;','- 1.0;'),
+    ('1e15','1.0e15'),
     ('1.0f','1.0'),
     (', 2)',', 2.0)'), # pow
     ('/2,','/2.0,'),
@@ -186,6 +187,10 @@ uniform vec2 unfbsdfsamples;
     ('#ifdef USE_BACKFACE\n'
     '			 && backface_depth_linear(ivec2(co.xy), 0) < ray.z + viewpos.z\n'
     '#endif\n', ''),
+    # # TODO: Where is this coming from??
+    # ('#ifdef USE_BACKFACE\n'
+    # '			 && backface_depth(ivec2(co.xy), 0) < ray.z + viewpos.z\n'
+    # '#endif\n', ''),
 ]
 
 argument_replacements = [

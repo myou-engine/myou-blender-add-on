@@ -136,19 +136,32 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
 
         if hasattr(ob, 'probe_type'):
             data['material_defines'] = material_defines = {}
+            # follow the probe chain to handle defines
+            real_probe_ob = ob
+            while real_probe_ob and real_probe_ob.probe_type == 'OBJECT'\
+                    and real_probe_ob.probe_object:
+                real_probe_ob = real_probe_ob.probe_object
+            # handle planar reflections
             is_plane = ob.probe_type == 'PLANE'
             if not is_plane:
-                # follow the probe chain to see if it's a plane
-                real_probe_ob = ob
-                while real_probe_ob and real_probe_ob.probe_type == 'OBJECT'\
-                        and real_probe_ob.probe_object:
-                    real_probe_ob = real_probe_ob.probe_object
                 if real_probe_ob and real_probe_ob.probe_type == 'PLANE':
                     is_plane = True
             if is_plane:
                 # by default defines without value have the value 0
                 # but in this case it doesn't matter and 1 feels more correct than null
                 material_defines['PLANAR_PROBE'] = 1
+            # follow the probe chain to handle defines (this time also planes)
+            while real_probe_ob and real_probe_ob.probe_type in ['OBJECT', 'PLANE']\
+                    and real_probe_ob.probe_object:
+                real_probe_ob = real_probe_ob.probe_object
+                print(real_probe_ob.name)
+            # handle probe parallax
+            parallax_type = real_probe_ob.probe_parallax_type # NONE, BOX, ELLIPSOID
+            material_defines['CORRECTION_'+parallax_type] = 1
+        else:
+            # is this necessary?
+            material_defines['CORRECTION_NONE'] = 1
+
 
     elif obtype=='CURVE':
         curves = []
