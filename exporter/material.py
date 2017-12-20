@@ -48,7 +48,7 @@ def mat_to_json(mat, scn, used_data):
         ramps = tree['ramps']
         lamps = []
         for ob in scn.objects:
-            if ob.type == 'LAMP' and ob.data:
+            if ob.type == 'LAMP' and ob.data and ob.data.type not in ['AREA', 'SPOT']:
                 use_shadow = False
                 shadow_buffer_type = ''
                 if ob.data.type != 'HEMI':
