@@ -2,6 +2,7 @@ import bpy
 from .mesh import convert_mesh
 from .phy_mesh import convert_phy_mesh
 from .animation import get_animation_data_strips
+from .material import get_pass_of_material
 from . import mesh_hash
 from . import progress
 from json import dumps, loads
@@ -52,12 +53,7 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                 if i < len(ob.material_slots) and ob.material_slots[i].material:
                     mat = ob.material_slots[i].material
                     name = mat.name
-                    if mat.use_transparency and \
-                        mat.transparency_method == 'RAYTRACE':
-                            pass_ = 2
-                    elif mat.use_transparency and \
-                            mat.game_settings.alpha_blend != 'CLIP':
-                        pass_ = 1
+                    pass_ = get_pass_of_material(mat, scn)
                 materials.append(name)
                 passes.append(pass_)
             del export_data['material_indices']

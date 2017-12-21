@@ -292,7 +292,20 @@ precision highp int;
 #endif
 #endif
 """ \
-        +defines+uniforms+(parts[0]+'}').replace('\r','')+'\n'
+        +defines+uniforms+(parts[0]+'}').replace('\r','')+'\n'+"""
+        uniform vec2 unfrefract_size_px, unfrefract_px_size;
+        void screen_space_refraction(vec4 color, vec3 normal,
+                float roughness, float ior, out vec4 out_col){
+            vec2 limit = (unfrefract_size_px-.5) * unfrefract_px_size;
+            vec2 uv = gl_FragCoord.xy * unfrefract_px_size;
+            uv += normal.xy*(ior-1.);
+            out_col = texture2D(unfrefract, min(uv, limit));
+            out_col.r = srgb_to_linearrgb(out_col.r);
+            out_col.g = srgb_to_linearrgb(out_col.g);
+            out_col.b = srgb_to_linearrgb(out_col.b);
+            // out_col = vec4(uv, texture2D(unfrefract, uv).g, 1.0);
+        }
+        """
         SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
         # This section below is necessary because something is interpreted as non ascii for some reason
         # despite the line above (which is also necessary, mysteriously...)

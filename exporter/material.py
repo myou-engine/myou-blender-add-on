@@ -108,3 +108,28 @@ def world_material_to_json(scn):
             fixed_z=1,
         )
     return None
+
+def has_refraction_node(tree):
+    for node in tree.nodes:
+        if node.type == 'BSDF_REFRACTION':
+            return True
+        elif node.type == '':
+            if has_refraction_node(node.node_tree):
+                return True
+    return False
+
+def get_pass_of_material(mat, scn):
+    pass_ = 0
+    if scn.render.engine != 'CYCLES':
+        # Blender internal or Blender game
+        if mat.use_transparency and \
+            mat.transparency_method == 'RAYTRACE':
+                pass_ = 2
+        elif mat.use_transparency and \
+                mat.game_settings.alpha_blend != 'CLIP':
+            pass_ = 1
+    else:
+        # PBR branch
+        if has_refraction_node(mat.node_tree):
+            pass_ = 2
+    return pass_

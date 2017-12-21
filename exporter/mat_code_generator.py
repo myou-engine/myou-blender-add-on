@@ -745,9 +745,20 @@ class NodeTreeShaderGenerator:
     def bsdf_refraction(self, invars, props):
         color0 = invars['Color'].to_color4()
         normal = invars['Normal'].to_vec3()
-        return self.bsdf_opaque('refract_'+props['distribution'].lower(), color0, normal,
-            roughness=invars['Roughness'].to_float(),
-            ior=invars['IOR'].to_float())
+        if str(normal) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
+            normal = self.facingnormal()
+        else:
+            normal = self.world2view_v3(normal)
+        roughness = invars['Roughness'].to_float()
+        ior = invars['IOR'].to_float()
+        out = self.tmp('color4')
+        return "screen_space_refraction({}, {}, {}, {}, {});".format(
+            color0, normal, roughness, ior, out), dict(BSDF=out)
+        # not used: props['distribution'].lower()
+        # original node:
+        # return self.bsdf_opaque('refract_'+props['distribution'].lower(), color0, normal,
+        #     roughness=invars['Roughness'].to_float(),
+        #     ior=invars['IOR'].to_float())
 
     def bsdf_toon(self, invars, props):
         color0 = invars['Color'].to_color4()
