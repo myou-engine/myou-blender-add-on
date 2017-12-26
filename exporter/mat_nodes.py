@@ -4,6 +4,7 @@
 ### representation to make it easy to export and use anywhere
 ###
 
+import bpy
 import json
 from pprint import *
 from array import array
@@ -169,14 +170,22 @@ def export_nodes_of_group(node_tree, ramps):
             'group_name': node_tree.name,}
     return tree
 
+OUTPUT_NODE_TYPE = {
+    'BLENDER_RENDER': ['OUTPUT'],
+    'BLENDER_GAME': ['OUTPUT'],
+    'CYCLES': ['OUTPUT_MATERIAL', 'OUTPUT_WORLD'],
+}
+
 def export_nodes_of_material(mat): # NOTE: mat can also be a world
     global common_attributes
     # if there is more than one output, the good one is last
     output_node = None
     nodes = {}
     ramps = {}
+    # TODO: Detect engine of exported scene and not the current one
+    out_types = OUTPUT_NODE_TYPE[bpy.context.scene.render.engine]
     for node in mat.node_tree.nodes:
-        if node.type in ['OUTPUT', 'OUTPUT_MATERIAL', 'OUTPUT_WORLD']:
+        if node.type in out_types:
             output_node = node
     if output_node:
         common_attributes = set(dir(output_node))

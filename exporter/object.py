@@ -154,6 +154,8 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             # handle probe parallax
             parallax_type = real_probe_ob.probe_parallax_type # NONE, BOX, ELLIPSOID
             material_defines['CORRECTION_'+parallax_type] = 1
+            # enable screen space refraction code
+            material_defines['SS_REFR'] = 1
 
 
     elif obtype=='CURVE':
