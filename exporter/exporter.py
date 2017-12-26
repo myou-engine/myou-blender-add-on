@@ -166,7 +166,7 @@ def search_scene_used_data(scene):
     print('\nSearching used data in the scene: ' + scene.name + '\n')
 
     # Export background textures(s)
-    if scene.world.use_nodes:
+    if scene.render.engine == 'CYCLES' and scene.world.use_nodes:
         search_in_node_tree(scene.world.node_tree, scene.world, None)
 
     for ob in scene.objects:
