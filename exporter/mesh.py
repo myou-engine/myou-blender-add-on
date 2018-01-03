@@ -463,13 +463,16 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     colors = []
     color_names = []
     for color in ob.data.vertex_colors:
-        coords = [0,0,0] * len(color.data)
+        col_len = 4
+        if color.data[0]:
+            col_len = len(color.data[0].color)
+        coords = ([0] * col_len) * len(color.data)
         color.data.foreach_get('color', coords)
         # Transform from 3 coordinates per face to
         # one coordinate per vertex
         colors_real = [None,None,None]*len(ob.data.vertices)
         for i,v in enumerate(indices):
-            i*=3
+            i*=col_len
             v*=3
             if colors_real[v] is None:
                 colors_real[v] = coords[i]
@@ -484,6 +487,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     # Max 4 per vertex, normalized
     weights = []
     bindices = []
+    bindices_map = {}
     numgroups = 4
     if has_armature_deform:
         if ob.get('weights6'):
@@ -495,14 +499,20 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
         for v in ob.data.vertices:
             w = []
             bi = []
-            groups = [g for g in v.groups if group_is_in_armature[g.group]]
+            groups = [g for g in v.groups
+                if group_is_in_armature[g.group] and g.weight > 0.001]
             # Sort by weight to get the 4 most influential bones
             groups.sort(key=lambda x: x.weight, reverse=True)
             groups = groups[:numgroups]
             tot = sum(g.weight for g in groups) or 1
             for g in groups:
                 w.append(g.weight/tot) # normalization
-                bi.append(b_ids_from_name[ob.vertex_groups[g.group].name])
+                bidx = b_ids_from_name[ob.vertex_groups[g.group].name]
+                # remap indices (for having fewer uniforms in submeshes)
+                # TODO: actually use submeshes instead of manual splits?
+                if bidx not in bindices_map:
+                    bindices_map[bidx] = len(bindices_map)
+                bi.append(bindices_map[bidx])
             weights.append((w+[0,0,0,0,0,0])[:numgroups])
             bindices.append((bi+[0,0,0,0,0,0])[:numgroups])
     #t=perf_t(t)
@@ -810,6 +820,9 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
 
     tri_count = len(indices)/3
 
+    bone_index_maps = [flip_map_to_list(bindices_map)] * len(v_offsets)
+    print('Bones used:', len(bone_index_maps[0]))
+
     ob.hide = hide
     ob.data = orig_data
     ob.select = was_sel
@@ -833,8 +846,17 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
         # properties below can be deleted before export
         'material_indices': materials,
         'can_add_lod': apply_modifiers,
+        'bone_index_maps': bone_index_maps,
     }
 
     MODE_OPS[orig_mode]()
     bpy.context.user_preferences.edit.use_global_undo = global_undo
     return export_data
+
+def flip_map_to_list(map):
+    if not map:
+        return []
+    r = [0] * (max(map.values())+1)
+    for k,v in map.items():
+        r[v] = k
+    return r

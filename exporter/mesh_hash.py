@@ -35,6 +35,7 @@ def mesh_hash(ob, used_data, extra_data):
     # t = perf_counter()
 
     hash = md5()
+    hash.update(b'v1') # increment this when there are changes
 
     vlen = len(ob.data.vertices)
     # reusing array
