@@ -50,9 +50,6 @@ def search_scene_used_data(scene):
                 used_data['objects'].append(ob)
                 if ob.type == 'MESH':
                     add_mesh(ob.data, i+1)
-                if 'alternative_meshes' in ob:
-                    for m in ob['alternative_meshes']:
-                        add_mesh(bpy.data.meshes[m], i+1)
 
                 for s in ob.material_slots:
                     if hasattr(s,'material') and s.material:
