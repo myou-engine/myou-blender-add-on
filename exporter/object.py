@@ -431,10 +431,11 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
     return obj
 
 def ob_in_layers(scn, ob):
-    return any(a and b for a,b in zip(scn.layers, ob.layers))
+    return any(a and b for a,b in zip(scn.myou_export_layers, ob.layers))
 
 
 def ob_to_json_recursive(ob, scn, used_data):
+    # TODO: Manage cases where the parent is not exported
     d = [ob_to_json(ob, scn, used_data)]
     for c in ob.children:
         if ob_in_layers(scn, c):

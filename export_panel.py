@@ -38,6 +38,8 @@ class LayoutDemoPanel(bpy.types.Panel):
             layout.operator("myou.toggle_export_options", text="Show export options")
         else:
             layout.operator("myou.toggle_export_options", text="Hide export options")
+            layout.label(text="Export layers")
+            self.draw_layers(scene, layout)
             layout.prop(scene, "myou_export_goto_start_timeline")
             layout.prop(scene, "myou_export_compress_scene")
             layout.prop(scene, "myou_export_convert_to_quats")
@@ -98,6 +100,31 @@ class LayoutDemoPanel(bpy.types.Panel):
         # row.operator("myou.todo", text='Mobile browser')
         # row.operator("myou.todo", text='Native')
         # row.operator("myou.todo", text='Mobile native')
+
+    def draw_layers(self, scene, layout):
+        layers_row = layout.row()
+        col = layers_row.column(align=True)
+        row = col.row(align=True)
+        for i in range(5):
+            icon = "NONE" # or "LAYER_ACTIVE"
+            row.prop(scene, "myou_export_layers",
+                index=i, toggle=True, text="", icon=icon)
+        row = col.row(align=True)
+        for i in range(10, 15):
+            icon = "NONE"
+            row.prop(scene, "myou_export_layers",
+                index=i, toggle=True, text="", icon=icon)
+        col = layers_row.column(align=True)
+        row = col.row(align=True)
+        for i in range(5, 10):
+            icon = "NONE"
+            row.prop(scene, "myou_export_layers",
+                index=i, toggle=True, text="", icon=icon)
+        row = col.row(align=True)
+        for i in range(15,20):
+            icon = "NONE"
+            row.prop(scene, "myou_export_layers",
+                index=i, toggle=True, text="", icon=icon)
 
 class SetTexDefaults(bpy.types.Operator):
     """Reset texture format options to recommended defaults"""
@@ -256,6 +283,7 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    bpy.types.Scene.myou_export_layers = BoolVectorProperty(name='Exported layers', size=20, default=[True]*20)
     bpy.types.Scene.myou_export_goto_start_timeline = BoolProperty(name='Go to start of timeline', default=False)
     bpy.types.Scene.myou_export_compress_scene = BoolProperty(name='Compress scene files', default=True)
     bpy.types.Scene.myou_export_convert_to_quats = BoolProperty(name='Convert all rotations to quaternions', default=False)

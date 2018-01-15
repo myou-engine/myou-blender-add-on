@@ -59,10 +59,13 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     # TODO: very big meshes
     orig_data = ob.data
     orig_pos = ob.location.copy()
+    orig_layers = ob.layers[:]
     active = scn.objects.active
     was_sel, hide, orig_ami = ob.select, ob.hide, ob.active_material_index
     scn.objects.active = ob
     ob.select, ob.hide = True, False
+
+    ob.layers = [True]*20
 
     ## Make sure mesh with armature has no local transform
     ## This affects all objects with the same mesh!
@@ -768,6 +771,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
         ob.data = orig_data
         ob.select = was_sel
         ob.location = orig_pos
+        ob.layers = orig_layers
         ob.active_material_index = orig_ami
         scn.objects.active = active
         MODE_OPS[orig_mode]()
@@ -827,6 +831,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     ob.data = orig_data
     ob.select = was_sel
     ob.location = orig_pos
+    ob.layers = orig_layers
     ob.active_material_index = orig_ami
     scn.objects.active = active
 
