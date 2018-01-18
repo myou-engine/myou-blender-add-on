@@ -65,7 +65,7 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
         data = convert(ob, sort=bool(ob.get('sort_mesh', True)))
         tri_count = data.get('tri_count', 0)
 
-        if data['can_add_lod']: # No LoD for meshes with keys, etc
+        if data['can_add_lod']:
             # lod_level_data contains:
             #    [
             #        {factor: 0.20,

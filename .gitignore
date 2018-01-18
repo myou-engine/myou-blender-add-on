@@ -5,3 +5,4 @@ __pycache__/
 bin/refreshed-astc-encoder-master/
 *.kate-swp
 .directory
+seafile-ignore.txt

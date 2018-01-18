@@ -78,6 +78,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     ps = None
     ps_data = None
     armature = None
+    has_modifiers = False
     for m in ob.modifiers:
         if (m.type=='PARTICLE_SYSTEM' and
             m.particle_system.settings.type == 'HAIR' and
@@ -96,8 +97,10 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
             scn.objects.active = ob
             break
 
-        if m.type == 'ARMATURE' and m.object and m.object == ob.parent:
-            armature = m.object
+        if m.show_viewport:
+            has_modifiers = True
+            if m.type == 'ARMATURE' and m.object and m.object == ob.parent:
+                armature = m.object
 
     has_armature_deform = \
         armature and not ob.parent_type == 'BONE' \
@@ -122,11 +125,33 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     is_bone_child = \
         ob.parent and ob.parent.type=='ARMATURE' and ob.parent_type == 'BONE' and ob.parent_bone
 
-    apply_modifiers = not ob.data.shape_keys and not ob.particle_systems
+    apply_modifiers = has_modifiers and not ob.particle_systems
+    preserve_keys = bool(ob.data.shape_keys) and bool(ob.data.shape_keys.key_blocks)
 
     if apply_modifiers:
-        # print('Applying modifiers:')
-        # t=perf_t(t,False)
+        print('Applying modifiers:')
+        t=perf_t(t)
+        if preserve_keys:
+            # To preserve keys with modifiers, we convert them in UVs
+            # to take advantage of modifiers that properly handle UVs
+            sizes = [0] * len(ob.data.polygons)
+            ob.data.polygons.foreach_get('loop_total', sizes)
+            indices = [0] * sum(sizes)
+            ob.data.polygons.foreach_get('vertices', indices)
+            orig_uv_len = len(ob.data.uv_layers)
+            basis = ob.data.shape_keys.key_blocks[0].data
+            for block in ob.data.shape_keys.key_blocks[1:]:
+                bpy.ops.mesh.uv_texture_add()
+                bpy.ops.mesh.uv_texture_add()
+                uv1,uv2 = ob.data.uv_layers[-2:]
+                data = block.data
+                for i,a,b in zip(indices, uv1.data, uv2.data):
+                    co = data[i].co - basis[i].co
+                    a.uv = co.xy
+                    b.uv = co.xz
+            print('keys were stored')
+            t=perf_t(t)
+
         mods = [0] * len(ob.modifiers)
         ob.modifiers.foreach_get('show_viewport', mods)
         for m in ob.modifiers:
@@ -154,8 +179,49 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
         ob.modifiers.foreach_set('show_viewport', mods)
         if ob.get('smooth'):
             bpy.ops.object.shade_smooth()
-        # t=perf_t(t)
+        t=perf_t(t)
 
+        if preserve_keys:
+            # Restore keys which were stored as UVs
+            sizes = [0] * len(ob.data.polygons)
+            ob.data.polygons.foreach_get('loop_total', sizes)
+            indices = [0] * sum(sizes)
+            ob.data.polygons.foreach_get('vertices', indices)
+            bpy.ops.object.shape_key_add(from_mix=False)
+            basis = ob.data.shape_keys.key_blocks[0].data
+            for block in orig_data.shape_keys.key_blocks[1:]:
+                bpy.ops.object.shape_key_add(from_mix=False)
+                b = ob.data.shape_keys.key_blocks[-1]
+                b.name = block.name
+                #b.interpolation = block.interpolation
+                #b.eval_time = block.eval_time
+                b.slider_min = block.slider_min
+                b.slider_max = block.slider_max
+                b.vertex_group = block.vertex_group
+                b.slider_min = block.slider_min
+                rel = block.relative_key.name
+                b.relative_key = ob.data.shape_keys.key_blocks[rel]
+                b.value = block.value
+                b.mute = block.mute
+                uv1,uv2 = ob.data.uv_layers[orig_uv_len:orig_uv_len+2]
+                data = b.data
+                for i,a,b in zip(indices, uv1.data, uv2.data):
+                    x, y = a.uv
+                    bx,by,bz = basis[i].co
+                    data[i].co = bx+x, by+y, bz+b.uv.y
+                ob.data.uv_textures.active_index = orig_uv_len
+                bpy.ops.mesh.uv_texture_remove()
+                ob.data.uv_textures.active_index = orig_uv_len
+                bpy.ops.mesh.uv_texture_remove()
+            # remove UVs of orig data
+            new_data = ob.data
+            ob.data = orig_data
+            while len(ob.data.uv_layers) > orig_uv_len:
+                ob.data.uv_textures.active_index = orig_uv_len
+                bpy.ops.mesh.uv_texture_remove()
+            ob.data = new_data
+            print('keys were restored')
+            t=perf_t(t)
     else:
         ob.data = ob.data.copy()
 
