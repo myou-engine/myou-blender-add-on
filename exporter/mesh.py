@@ -533,7 +533,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     color_names = []
     for color in ob.data.vertex_colors:
         col_len = 4
-        if color.data[0]:
+        if color.data:
             col_len = len(color.data[0].color)
         coords = ([0] * col_len) * len(color.data)
         color.data.foreach_get('color', coords)
