@@ -12,6 +12,9 @@ uniform mat4 projection_matrix_inverse;
 
 defines = '''
 #define USE_NEW_SHADING
+#ifndef BG_LOD
+#define BG_LOD 0.0
+#endif
 '''
 
 replacements = [
@@ -130,14 +133,8 @@ uniform vec2 unfbsdfsamples;
     # but using only one matrix uniform
     ('co_homogenous = (projection_matrix_inverse * v);', 'co_homogenous = v;'),
     ('(model_view_matrix_inverse * co).xyz', '(rotation_matrix_inverse * co.xyz)'),
-    # bad fix for equirectangular seams (just a little bit better than without it)
-    # Still shows a seam but only when looking up or down
-    # TODO: Proper fix using textureLod or textureGrad
-    ('''-atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5;''',
-     '''(rotation_matrix_inverse[2][0]<0.0)?
-        -atan(nco.y, nco.x) / (2.0 * M_PI) + 0.5:
-        -atan(-nco.y, -nco.x) / (2.0 * M_PI);'''
-    ),
+    # bad fix for equirectangular seams (must set BG_LOD)
+    ('color = texture2D(ima, vec2(u, v));', 'color = texture2DLod(ima, vec2(u, v), BG_LOD);'),
 
     # Same name of variable and function doesn't work in ANGLE
     (re.compile(r'disk_energy(?!\()', flags=re.DOTALL), r'd_energy'),
