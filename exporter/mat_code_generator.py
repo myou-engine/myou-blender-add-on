@@ -1311,3 +1311,13 @@ class NodeTreeShaderGenerator:
 
     def group_output(self, invars, props):
         return '', invars
+
+    ## Blender internal
+
+    def squeeze(self, invars, props):
+        in1 = invars['Value'].to_float()
+        in2 = invars['Width'].to_float()
+        in3 = invars['Center'].to_float()
+        out = self.tmp('float')
+        code = "squeeze({}, {}, {}, {});".format(in1, in2, in3, out)
+        return code, dict(Value=out)
