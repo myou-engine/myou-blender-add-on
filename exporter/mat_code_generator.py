@@ -120,7 +120,7 @@ class NodeTreeShaderGenerator:
         else:
             name = 'material '+tree['material_name']
         # print("EXPORTING "+name)
-        if 'output_node_name' in tree:
+        if tree.get('output_node_name'):
             output_node = tree['nodes'][tree['output_node_name']]
             return self.get_outputs(output_node)
         else:
