@@ -109,12 +109,12 @@ def world_material_to_json(scn):
         )
     return None
 
-def has_refraction_node(tree):
+def has_node(tree, type):
     for node in tree.nodes:
-        if node.type == 'BSDF_REFRACTION':
+        if node.type == type:
             return True
         elif node.type == '':
-            if has_refraction_node(node.node_tree):
+            if has_node(node.node_tree, type):
                 return True
     return False
 
@@ -130,6 +130,8 @@ def get_pass_of_material(mat, scn):
             pass_ = 1
     else:
         # PBR branch
-        if has_refraction_node(mat.node_tree):
+        if has_node(mat.node_tree, 'BSDF_TRANSPARENT'):
+            pass_ = 1
+        elif has_node(mat.node_tree, 'BSDF_REFRACTION'):
             pass_ = 2
     return pass_

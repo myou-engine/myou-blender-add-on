@@ -773,12 +773,11 @@ class NodeTreeShaderGenerator:
         return self.bsdf_opaque('translucent', color0, normal)
 
     def bsdf_transparent(self, invars, props):
-        # Not sure what's the point of this shader, but it works the same as in Blender PBR branch
-        color0 = invars['Color'].to_color4()
-        return self.bsdf_opaque('transparent', color0,
-        # these are different than unconnected sockets, so they won't be calculated
-        'vec3(0.0)', tangent='vec3(0.0)',
-        use_lights=False)
+        color0 = invars['Color'].to_vec3()
+        out = self.tmp('vec4')
+        code = "{} = vec4({}, 0.0);".format(out, color0)
+        outputs = dict(BSDF=out)
+        return code, outputs
 
     def subsurface_scattering(self, invars, props):
         color0 = invars['Color'].to_color4()
@@ -1313,6 +1312,23 @@ class NodeTreeShaderGenerator:
         return '', invars
 
     ## Blender internal
+
+    def material(self, invars, props):
+        return '', dict(
+            Color=self.value_to_var([0,0,0]),
+            Alpha=self.value_to_var(0),
+            Normal=self.value_to_var([0,0,0]),
+        )
+
+    def material_ext(self, invars, props):
+        return '', dict(
+            Color=self.value_to_var([0,0,0]),
+            Alpha=self.value_to_var(0),
+            Normal=self.value_to_var([0,0,0]),
+            Diffuse=self.value_to_var([0,0,0]),
+            Spec=self.value_to_var([0,0,0]),
+            AO=self.value_to_var([0,0,0]),
+        )
 
     def squeeze(self, invars, props):
         in1 = invars['Value'].to_float()

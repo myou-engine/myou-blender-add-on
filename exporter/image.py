@@ -141,6 +141,7 @@ def export_images(dest_path, used_data):
             'wrap': None, # null on purpose = setting taken from material
             'filter': None,
             'use_mipmap': None,
+            'use_alpha': bool(uses_alpha),
         }
 
         num_tex_users = len(used_data['image_texture_slots'][image.name])
