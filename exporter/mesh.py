@@ -126,6 +126,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
         ob.parent and ob.parent.type=='ARMATURE' and ob.parent_type == 'BONE' and ob.parent_bone
 
     apply_modifiers = has_modifiers and not ob.particle_systems
+    can_add_lod = not ob.particle_systems
     preserve_keys = bool(ob.data.shape_keys) and bool(ob.data.shape_keys.key_blocks)
 
     if apply_modifiers:
@@ -916,7 +917,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
         'bbox': [min_v[0], min_v[1], min_v[2], max_v[0], max_v[1], max_v[2]],
         # properties below can be deleted before export
         'material_indices': materials,
-        'can_add_lod': apply_modifiers,
+        'can_add_lod': can_add_lod,
         'bone_index_maps': bone_index_maps,
     }
 
