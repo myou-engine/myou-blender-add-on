@@ -40,10 +40,6 @@ def mat_to_json(mat, scn, used_data):
 
         # NodeTreeShaderGenerator uses platform-agnostic data
         # so we convert the tree and the lamps
-        if not mat.use_nodes:
-            raise Exception("Can't export material without enabled nodes.\n"
-                'Material: '+mat.name+'\n'+
-                'Objects: ' + ', '.join(list(m.name for m in used_data['material_objects'][mat.name])[:20]))
         tree = mat_nodes.export_nodes_of_material(mat)
         ramps = tree['ramps']
         lamps = []
@@ -130,8 +126,9 @@ def get_pass_of_material(mat, scn):
             pass_ = 1
     else:
         # PBR branch
-        if has_node(mat.node_tree, 'BSDF_TRANSPARENT'):
-            pass_ = 1
-        elif has_node(mat.node_tree, 'BSDF_REFRACTION'):
-            pass_ = 2
+        if mat.use_nodes:
+            if has_node(mat.node_tree, 'BSDF_TRANSPARENT'):
+                pass_ = 1
+            elif has_node(mat.node_tree, 'BSDF_REFRACTION'):
+                pass_ = 2
     return pass_

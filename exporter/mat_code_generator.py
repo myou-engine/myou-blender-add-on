@@ -432,7 +432,12 @@ class NodeTreeShaderGenerator:
         color = self.tmp('color4')
         vector = self.tmp('vec3')
         fac = self.tmp('float')
-        code = "node_attribute({}, {}, {}, {});".format(self.attr_color(name).to_vec3(), color, vector, fac)
+        if name.startswith('inputs.'):
+            name = name[7:]
+            in_vec = self.uniform(dict(name=name, type='CUSTOM', datatype='vec3'))
+        else:
+            in_vec = self.attr_color(name).to_vec3()
+        code = "node_attribute({}, {}, {}, {});".format(in_vec, color, vector, fac)
         outputs = dict(Color=color, Vector=vector, Fac=fac)
         return code, outputs
 

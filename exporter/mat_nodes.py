@@ -176,8 +176,27 @@ OUTPUT_NODE_TYPE = {
     'CYCLES': ['OUTPUT_MATERIAL', 'OUTPUT_WORLD'],
 }
 
+def make_nodeless_tree(mat):
+    color = list(mat.diffuse_color)+[1.0]
+    return {'material_name': 'Material',
+     'nodes': {
+        'Diffuse BSDF': {'inputs': {'Color': {'value': color},
+                                    'Normal': {'value': [0.0, 0.0, 0.0]},
+                                    'Roughness': {'value': 0.0}},
+                         'type': 'BSDF_DIFFUSE'},
+        'Material Output': {'inputs': {'Displacement': {'value': 0.0},
+                                       'Surface': {'link': {'node': 'Diffuse '
+                                                                    'BSDF',
+                                                            'socket': 'BSDF'}},
+                                       'Volume': {}},
+                            'type': 'OUTPUT_MATERIAL'}},
+     'output_node_name': 'Material Output',
+     'ramps': {}}
+
 def export_nodes_of_material(mat): # NOTE: mat can also be a world
     global common_attributes
+    if not mat.use_nodes:
+        return make_nodeless_tree(mat)
     # if there is more than one output, the good one is last
     output_node = None
     nodes = {}
