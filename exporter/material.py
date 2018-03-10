@@ -35,7 +35,6 @@ def mat_to_json(mat, scn, used_data):
         r['ramps'] = {}
         return r
     else:
-        set_shader_lib('', mat, scn)
         # Blender Cycles or PBR branch
 
         # NodeTreeShaderGenerator uses platform-agnostic data
@@ -79,12 +78,6 @@ def mat_to_json(mat, scn, used_data):
 
 def world_material_to_json(scn):
     if scn.render.engine == 'CYCLES' and scn.world.use_nodes:
-        if not get_shader_lib():
-            # Create a material just to get the shader library
-            mat = bpy.data.materials.new('delete_me')
-            set_shader_lib('', mat, scn)
-            bpy.data.materials.remove(mat)
-
         tree = mat_nodes.export_nodes_of_material(scn.world)
         tree['is_background'] = True
         gen = mat_code_generator.NodeTreeShaderGenerator(tree, [])

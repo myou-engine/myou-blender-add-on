@@ -1,6 +1,7 @@
 from pprint import *
 import re
 import json
+from collections import OrderedDict
 
 uniforms = '''
 uniform mat3 rotation_matrix_inverse;
@@ -199,7 +200,7 @@ alternate_bodies = {
 }
 
 # Make sure \r are removed before calling this
-def do_lib_replacements(lib):
+def get_patched_functions(lib):
     function_parts = re.compile(r"\n(\w+)\s+(\w+)\s*\((.*?)\)", flags=re.DOTALL).split(lib,)
     preamble = ['', '', '', function_parts[0]]
     #print(function_parts[0])
@@ -209,8 +210,9 @@ def do_lib_replacements(lib):
         function_parts[3::4], # arguments (comma separated) # TODO: handle newlines?
         function_parts[4::4], # body and after body
     ))
-    functions = []
+    functions = OrderedDict()
     patched_bodies = []
+    head = ''
     for rtype, name, args, body in function_parts:
         # reps = []
         if name in alternate_bodies and name not in patched_bodies:
@@ -233,18 +235,27 @@ def do_lib_replacements(lib):
         for a,b in argument_replacements:
             args = args.replace(a,str(b))
         if not name: # preamble
-            functions.append(body)
+            function = body
         else:
-            functions.append("\n{} {}({}){}".format(rtype, name, args, body))
-    return ''.join(functions)
+            # all #if after the } belong to the next function
+            next_head = ''
+            a,b = body.rsplit('}', 1)
+            if '\n#if' in b:
+                b,c = b.split('#if', 1)
+                body = a+'}'+b
+                next_head = '#if'+c+'\n'
+            function = "\n{}{} {}({}){}".format(head, rtype, name, args, body)
+            head = next_head
+        functions[name] = functions.get(name, '') + function
+    return functions
 
 
 SHADER_LIB = ""
 debug_lib = False
 
-def set_shader_lib(fragment='', mat=None, scn=None):
+def get_shader_lib(mat_list):
     global SHADER_LIB
-    if not SHADER_LIB or debug_lib:
+    if True:
         ## For GPUs unsupported by PBR branch, put an exported scene json in
         ## /tmp/myou-shader-lib.json and uncomment this code
         # try:
@@ -254,12 +265,10 @@ def set_shader_lib(fragment='', mat=None, scn=None):
         #             return SHADER_LIB
         # except:
         #     pass
-        if not fragment:
-            if mat and scn:
-                import gpu
-                fragment = gpu.export_shader(scn, mat)['fragment']
-            else:
-                raise Exception("Wrong arguments")
+        import bpy, gpu
+        mat = bpy.data.materials.new('delete_me')
+        fragment = gpu.export_shader(bpy.context.scene, mat)['fragment']
+        bpy.data.materials.remove(mat)
         print('Converting shader lib')
         parts = fragment.rsplit('}',2)
         SHADER_LIB = \
@@ -305,7 +314,23 @@ precision highp int;
         }
         #endif
         """
-        SHADER_LIB = do_lib_replacements(SHADER_LIB).encode('ascii', 'ignore').decode()
+        functions = get_patched_functions(SHADER_LIB)
+        # remove unused functions
+        # we're adding '' and 'material_preview_matcap' to ensure we add
+        # the preamble and uniforms/globals, respectively
+        used = {'', 'material_preview_matcap', 'mul', 'color_to_blender_normal_new_shading', 'distance_based_roughness'}
+        call = re.compile(r"\b\w+\s*\(", flags=re.DOTALL)
+        def add_used(code):
+            for name in call.findall(code):
+                name = name[:-1]
+                if name in functions and name not in used:
+                    used.add(name)
+                    add_used(functions[name])
+        for m in mat_list:
+            add_used(m['fragment'])
+        print('GLSL functions: total', len(functions), 'used', len(used))
+
+        SHADER_LIB = ''.join(f for k,f in functions.items() if k in used).encode('ascii', 'ignore').decode()
         # This section below is necessary because something is interpreted as non ascii for some reason
         # despite the line above (which is also necessary, mysteriously...)
         splits = SHADER_LIB. split('BIT_OPERATIONS', 2)
@@ -316,5 +341,4 @@ precision highp int;
             open('/tmp/shader_lib.orig.glsl','w').write((parts[0]+'}').replace('\r','')+'\n')
             open('/tmp/shader_lib.glsl','w').write(SHADER_LIB)
 
-def get_shader_lib():
     return SHADER_LIB

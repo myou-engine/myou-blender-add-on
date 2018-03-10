@@ -271,7 +271,10 @@ def whole_scene_to_json(scn, used_data, textures_path):
     scn['game_tmp_path'] = get_scene_tmp_path(scn) # TODO: have a changed_scene function
 
     # Start exporting scene settings, then the objects
+    world_mat_list = []
     ret = [scene_data_to_json(scn)]
+    if ret[0]['world_material']:
+        world_mat_list = [ret[0]['world_material']]
     for ob in used_data['objects']:
         if ob.parent:
             continue
@@ -311,7 +314,7 @@ def whole_scene_to_json(scn, used_data, textures_path):
             'wrap': 'C',
         })
     # We must export shader lib after materials, but engine has to read it before
-    ret.append({"type":"SHADER_LIB","code": get_shader_lib()})
+    ret.append({"type":"SHADER_LIB","code": get_shader_lib(mat_json+world_mat_list)})
     ret += image_json + mat_json + act_json
     # Final JSON encoding, without spaces
     retb = dumps(ret, separators=(',',':')).encode('utf8')
@@ -322,7 +325,7 @@ def whole_scene_to_json(scn, used_data, textures_path):
     # for mesh_hash, fpath in scn['exported_meshes'].items():
     #     if mesh_hash not in scn['embed_mesh_hashes']:
     #         size += os.path.getsize(fpath)
-    print('Total scene size: %.3f MiB (%.3f MiB compressed)' %
+    print('Scene JSON size: %.3f MiB (%.3f MiB compressed)' %
           (size/1048576, size_gz/1048576))
     scn['total_size'] = size
     if was_editing:
@@ -402,6 +405,7 @@ def export_myou(path, scn):
             scn_dir = join(scenes_path, scene.name)
             try_mkdir(scn_dir)
             scene_json, scene_json_gz = whole_scene_to_json(scene, used_data, textures_path)
+            print('Copying files...')
             open(join(scn_dir, 'all.json'), 'wb').write(scene_json)
             if scn.myou_export_compress_scene:
                 open(join(scn_dir, 'all.json.gz'), 'wb').write(scene_json_gz)
@@ -439,6 +443,7 @@ def export_myou(path, scn):
             tex_abs = join(textures_path, tex)
             if tex not in used_textures and os.path.isfile(tex_abs):
                 os.remove(tex_abs)
+        print('=== Export has finished successfully ===')
     except:
         import datetime
         # shutil.move(full_dir, full_dir+'_FAILED_'+str(datetime.datetime.now()).replace(':','-').replace(' ','_').split('.')[0])

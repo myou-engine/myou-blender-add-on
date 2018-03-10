@@ -86,7 +86,6 @@ def mat_to_json_try(mat, scn):
 
     # NOTE: This export is replaced later
     shader = gpu.export_shader(scn, mat)
-    set_shader_lib(shader['fragment'])
     parts = shader['fragment'].rsplit('}',2)
     shader['fragment'] = ('\n'+parts[1]+'}')
 
@@ -215,7 +214,7 @@ def mat_to_json_try(mat, scn):
 
     for a,b in replacements:
         shader['fragment'] = shader['fragment'].replace(a, b)
-    
+
     if mat.game_settings.alpha_blend == 'CLIP':
         shader['fragment'] = re.sub(
             r'gl_FragColor = ([^;]*)',
