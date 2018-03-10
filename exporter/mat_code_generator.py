@@ -1319,16 +1319,18 @@ class NodeTreeShaderGenerator:
     ## Blender internal
 
     def material(self, invars, props):
+        color = self.uniform(dict(type='OB_COLOR', datatype='vec4'))
         return '', dict(
-            Color=self.value_to_var([0,0,0]),
-            Alpha=self.value_to_var(0),
+            Color=color.to_vec3(),
+            Alpha=Variable(color.name+'.a', 'float'),
             Normal=self.value_to_var([0,0,0]),
         )
 
     def material_ext(self, invars, props):
+        color = self.uniform(dict(type='OB_COLOR', datatype='vec4'))
         return '', dict(
-            Color=self.value_to_var([0,0,0]),
-            Alpha=self.value_to_var(0),
+            Color=color.to_vec3(),
+            Alpha=Variable(color.name+'.a', 'float'),
             Normal=self.value_to_var([0,0,0]),
             Diffuse=self.value_to_var([0,0,0]),
             Spec=self.value_to_var([0,0,0]),
