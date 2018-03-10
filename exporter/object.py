@@ -313,6 +313,18 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                     'position': list(bone.location) if not ob.data.bones[bone.name].use_connect else [0,0,0],
                     'rotation': bone.rotation_quaternion[1:]+bone.rotation_quaternion[0:1],
                     'scale': list(bone.scale),
+                    'ik_stiffness_x': bone.ik_stiffness_x,
+                    'use_ik_limit_x': bone.use_ik_limit_x or bone.lock_ik_x,
+                    'ik_min_x': bone.ik_min_x if not bone.lock_ik_x else 0,
+                    'ik_max_x': bone.ik_max_x if not bone.lock_ik_x else 0,
+                    'ik_stiffness_y': bone.ik_stiffness_y,
+                    'use_ik_limit_y': bone.use_ik_limit_y or bone.lock_ik_y,
+                    'ik_min_y': bone.ik_min_y if not bone.lock_ik_y else 0,
+                    'ik_max_y': bone.ik_max_y if not bone.lock_ik_y else 0,
+                    'ik_stiffness_z': bone.ik_stiffness_z,
+                    'use_ik_limit_z': bone.use_ik_limit_z or bone.lock_ik_z,
+                    'ik_min_z': bone.ik_min_z if not bone.lock_ik_z else 0,
+                    'ik_max_z': bone.ik_max_z if not bone.lock_ik_z else 0,
                 }
             data['pose'] = pose
         else:
