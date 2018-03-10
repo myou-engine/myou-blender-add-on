@@ -166,6 +166,16 @@ def export_images(dest_path, used_data):
                 out_format = 'PNG'
                 out_ext = 'png'
             for lod_level in lod_levels+[base_level]:
+                # Skip higher LoD levels configured in the scene
+                if lod_level:
+                    if isinstance(lod_level, int):
+                        width = height = lod_level
+                    else:
+                        width, height = lod_level
+                    if (width > image.size[0] or
+                        height > image.size[1]):
+                            continue
+
                 if path_exists or image.packed_file:
 
                     if scene.myou_export_ASTC:
@@ -216,10 +226,6 @@ def export_images(dest_path, used_data):
                         print('Copied original image')
                     else:
                         if lod_level is not None:
-                            if isinstance(lod_level, int):
-                                width = height = lod_level
-                            else:
-                                width, height = lod_level
                             file_name = file_name_base + '-{w}x{h}.{e}'.format(w=width, h=height, e=out_ext)
                             exported_path = os.path.join(dest_path, file_name)
                             if not exists(exported_path):
@@ -273,11 +279,10 @@ def export_images(dest_path, used_data):
         else:
             raise Exception('Image source not supported: ' + image.name + ' source: ' + image.source)
 
-        # Embed all images that are 64x64 or lower, and delete the files
+        # Embed all images that are 64x64 or lower.
         # To change the default 64x64, add an 'embed_max_size' property
         # to the scene, set the value (as integer) and a max range >= the value
         # (if you don't change the max range, the final value used gets clamped)
-        files_to_delete = set()
         for fmt, datas in image_info['formats'].items():
             for data in datas:
                 if fmt in ['png', 'jpeg'] and \
@@ -287,9 +292,6 @@ def export_images(dest_path, used_data):
                     data['data_uri'] = file_path_to_data_uri(exported_path, fmt)
                     data['file_name'] = None
                     del data['file_name']
-                    files_to_delete.add(exported_path)
-        for fpath in files_to_delete:
-            os.unlink(fpath)
         if tmp_filepath:
             os.unlink(tmp_filepath)
         print()
