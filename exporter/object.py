@@ -21,8 +21,18 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
 
     #print(ob.type,ob.name)
     obtype = ob.type
+    obname = ob.name
+    ob_anim_data = ob.animation_data
 
-    if obtype=='MESH':
+    if obtype=='MESH' or obtype == 'FONT':
+        if obtype == 'FONT':
+            nob = bpy.data.objects.new('', ob.to_mesh(scn, True, 'PREVIEW'))
+            scn.objects.link(nob)
+            for attr in ('location', 'rotation_euler', 'rotation_quaternion',
+                'parent', 'matrix_parent_inverse', 'scale', 'color',
+                'rotation_mode'):
+                    setattr(nob, attr, getattr(ob, attr))
+            ob = nob
         generate_tangents = any([used_data['material_use_tangent'][m.material.name] for m in ob.material_slots if m.material])
         def convert(ob, sort, is_phy=False):
             hash = mesh_hash.mesh_hash(ob, used_data, [sort, generate_tangents, is_phy])
@@ -391,14 +401,14 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
     if parent and ob.parent.proxy:
         parent = ob.parent.proxy.name
 
-    strips = get_animation_data_strips(ob.animation_data)[0]
+    strips = get_animation_data_strips(ob_anim_data)[0]
     if ob.type=='MESH' and ob.data and ob.data.shape_keys:
         strips += get_animation_data_strips(ob.data.shape_keys.animation_data)[0]
 
     obj = {
         'scene': scn.name,
-        'type': obtype,
-        'name': ob.name,
+        'type': ob.type,
+        'name': obname,
         'position': list(ob.location),
         'rot': list(rot),
         'rot_mode': rot_mode,
@@ -440,6 +450,8 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             'max_fall_speed': ob.game.fall_speed
         })
     obj.update(data)
+    if obtype == 'FONT':
+        scn.objects.unlink(nob)
     return obj
 
 def ob_in_layers(scn, ob):
