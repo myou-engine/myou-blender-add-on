@@ -32,6 +32,8 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                 'parent', 'matrix_parent_inverse', 'scale', 'color',
                 'rotation_mode'):
                     setattr(nob, attr, getattr(ob, attr))
+            for k,v in ob.items():
+                nob[k] = v
             ob = nob
         generate_tangents = any([used_data['material_use_tangent'][m.material.name] for m in ob.material_slots if m.material])
         def convert(ob, sort, is_phy=False):
