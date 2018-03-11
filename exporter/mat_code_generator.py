@@ -619,11 +619,18 @@ class NodeTreeShaderGenerator:
         co = invars['Vector']
         if str(co) == 'vec3(0.0, 0.0, 0.0)': # if it's not connected
             co = self.uv()
-        sampler = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['image']))
         color = self.tmp('color4')
         alpha = self.tmp('float')
-        self.code.append("node_tex_image({}, {}, {}, {});".format(
-            co.to_vec3(), sampler, color, alpha))
+        if props['projection'] == 'BOX' and 'texture_cube' in props['image']:
+            # TODO: Add support for actual box projection
+            # This is a special case when we plug a cube texture in code
+            sampler = self.uniform(dict(type='IMAGE', datatype='samplerCube', image=props['image']))
+            self.code.append("{} = textureCube({}, {}); {} = {}.a;".format(
+                color, sampler, co.to_vec3(), alpha, color))
+        else:
+            sampler = self.uniform(dict(type='IMAGE', datatype='sampler2D', image=props['image']))
+            self.code.append("node_tex_image({}, {}, {}, {});".format(
+                co.to_vec3(), sampler, color, alpha))
         if props['color_space'] == 'COLOR':
             out = self.tmp('color4')
             code = "srgb_to_linearrgb({},{});".format(color, out)
