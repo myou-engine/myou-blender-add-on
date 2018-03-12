@@ -119,6 +119,9 @@ def get_pass_of_material(mat, scn):
             pass_ = 1
     else:
         # PBR branch
+        if mat.use_transparency and \
+            mat.game_settings.alpha_blend != 'CLIP':
+                pass_ = 1
         if mat.use_nodes:
             if has_node(mat.node_tree, 'BSDF_TRANSPARENT'):
                 pass_ = 1
