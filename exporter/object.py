@@ -279,6 +279,8 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
         if export_pose:
             for bone in ob.pose.bones:
                 for c in bone.constraints:
+                    if c.mute:
+                        continue
                     if c.type.startswith('COPY_') and c.subtarget:
                         axes = [int(c.use_x), int(c.use_y), int(c.use_z)]
                         if axes.count(1)==1 and c.type=='COPY_ROTATION':
@@ -297,6 +299,22 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                         bone_dict[bone.name]['constraints'].append(
                             [c.type.lower(), bone.name, c.subtarget, cl, c.iterations])
                         depends[bone.name].add(c.subtarget)
+                        # have all children of bones of the chain to depend
+                        # on this bone instead of their parent, because their
+                        # parents are modified after IK is applied on this
+                        last_bone = bone.name
+                        while cl > 1 and bone:
+                            previous = bone
+                            bone = bone.parent
+                            if bone:
+                                for child in bone.children:
+                                    if child != previous:
+                                        depends[child.name].difference_update({child.parent.name})
+                                        depends[child.name].add(last_bone)
+                                        for child2 in child.children_recursive:
+                                            depends[child2.name].difference_update({child2.parent.name})
+                                            depends[child2.name].add(last_bone)
+                            cl -= 1
 
         final_order = []
         last = set()
@@ -310,6 +328,20 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                     del depends[k]
             last = next
             if not next:
+                # find cycle
+                checked = set()
+                cycle = []
+                def check(k):
+                    if k in checked:
+                        raise Exception("Cycle found: "+' '.join(cycle))
+                    checked.add(k)
+                    cycle.append(k)
+                    for k in depends[k]:
+                        check(k)
+                for k in depends.keys():
+                    if k not in checked:
+                        cycle = []
+                        check(k)
                 print("ERROR: cyclic dependencies in", ob.name, "\n      ", ' '.join(depends.keys()))
                 # TODO: find bones with less dependencies and no parent dependencies
                 break
