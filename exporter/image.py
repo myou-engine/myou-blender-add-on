@@ -171,6 +171,7 @@ def export_images(dest_path, used_data):
                 out_ext = 'png'
             for lod_level in lod_levels+[base_level]:
                 # Skip higher LoD levels configured in the scene
+                width, height = image.size
                 if lod_level:
                     if isinstance(lod_level, int):
                         width = height = lod_level
@@ -189,8 +190,11 @@ def export_images(dest_path, used_data):
                         file_name = file_name_base + fast + '-{w}x{h}.etc2'.format(w=width, h=height)
                         exported_path = os.path.join(dest_path, file_name)
                         if not exists(exported_path):
-                            encode_etc2_fast(get_png(), exported_path,
+                            tmp = tempfile.mktemp()
+                            save_image(image, tmp, 'PNG', resize=(width, height))
+                            encode_etc2_fast(tmp, exported_path,
                                 is_sRGB, uses_alpha)
+                            os.unlink(tmp)
                         format_enum = get_etc2_format_enum(is_sRGB, uses_alpha)
                         rg11 = False
                         # TODO: detect punchthrough alpha?
@@ -251,7 +255,6 @@ def export_images(dest_path, used_data):
                             file_name = file_name_base + '-{w}x{h}.{e}'.format(w=width, h=height, e=out_ext)
                             exported_path = os.path.join(dest_path, file_name)
                             if not exists(exported_path):
-                                print('doesnt exist',exported_path)
                                 save_image(image, exported_path, out_format, resize=(width, height))
                             image_info['formats'][out_format.lower()].append({
                                 'width': width, 'height': height,
