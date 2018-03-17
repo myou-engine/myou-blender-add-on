@@ -6,6 +6,7 @@ import os
 from math import *
 from json import dumps, loads
 from collections import defaultdict
+from .etc import *
 from .astc import *
 from . import progress
 tempdir  = tempfile.gettempdir()
@@ -121,11 +122,12 @@ def export_images(dest_path, used_data):
                 return tmp_filepath
             get_png_or_jpg = f # is this necessary? just in case
         uses_alpha = image['has_alpha'] # assigned in get_image_hash()
-        is_sRGB = not used_data['image_is_normal_map'].get(image.name, False)
-        if is_sRGB:
-            print('Image',image.name,'is sRGB')
-        else:
-            print('Image',image.name,'is linear')
+        # is_sRGB = not used_data['image_is_normal_map'].get(image.name, False)
+        # if is_sRGB:
+        #     print('Image',image.name,'is sRGB')
+        # else:
+        #     print('Image',image.name,'is linear')
+        is_sRGB = False
         image_info = {
             'type': 'TEXTURE',
             'name': image.name,
@@ -178,6 +180,25 @@ def export_images(dest_path, used_data):
 
                 if path_exists or image.packed_file:
 
+                    if scene.myou_export_ETC2:
+                        fast = ''
+                        if scene.myou_export_tex_quality=='FAST':
+                            fast = '-fast'
+                        file_name = file_name_base + fast + '.etc'
+                        exported_path = os.path.join(dest_path, file_name)
+                        if not exists(exported_path):
+                            encode_etc2_fast(get_png_or_jpg(), exported_path,
+                                is_sRGB, uses_alpha)
+                        format_enum = get_etc2_format_enum(is_sRGB, uses_alpha)
+                        rg11 = False
+                        # TODO: detect punchthrough alpha?
+                        image_info['formats']['etc2'].append({
+                            'width': image.size[0], 'height': image.size[1],
+                            'file_name': file_name, 'file_size': fsize(exported_path),
+                            'sRGB': is_sRGB, 'format_enum': format_enum,
+                            'bpp':8 if uses_alpha or rg11 else 4,
+                        })
+
                     if scene.myou_export_ASTC:
                         if not astc_binary_checked:
                             download_astc_tools_if_needed()
@@ -198,7 +219,6 @@ def export_images(dest_path, used_data):
                             'file_name': file_name, 'file_size': fsize(exported_path),
                             'sRGB': is_sRGB, 'format_enum': format_enum,
                         })
-
 
                     # image['exported_extension'] is only used
                     # for material.uniform['filepath'] which is only used
@@ -313,7 +333,7 @@ def pack_generated_images(used_data):
 
 def image_has_alpha(image):
     # TODO: also check if any use_alpha of textures is enabled
-    if not image.use_alpha:
+    if not image.use_alpha or image.source == 'MOVIE':
         return False
     elif not bpy.context.scene.get('skip_texture_conversion') \
             and bpy.context.scene.myou_export_JPEG_compress == 'COMPRESS':
@@ -357,7 +377,17 @@ def png_file_has_alpha(file_path):
             end = tag == b'IEND'
     except:
         raise Exception("Couldn't read PNG file "+file_path)
-    return has_alpha_channel or has_transparency_chunk
+    if has_alpha_channel or has_transparency_chunk:
+        # if the answer is affirmative, let's check the individual pixels
+        # to see if any is not opaque
+        img = bpy.data.images.new('tmp', 1, 1)
+        img.filepath = file_path
+        img.source = 'FILE'
+        img.reload()
+        opaque = sum(list(img.pixels)[3::4]) == len(img.pixels) / 4
+        bpy.data.images.remove(img)
+        return not opaque
+    return False
 
 def fsize(path):
     return os.stat(path).st_size
@@ -383,6 +413,8 @@ from os.path import exists, getmtime
 import time
 from bpy.path import abspath
 import hashlib, codecs
+hash_version = 1
+
 def get_image_hash(image):
     recompute_hash = True
     filename = abspath(image.filepath)
@@ -405,7 +437,8 @@ def get_image_hash(image):
                 filename = bpy.data.filepath
         if date == 0 and exists(filename):
             date = getmtime(filename)
-        recompute_hash = date > image['hash_date']
+        recompute_hash = date > image['hash_date'] \
+            or image.get('hash_version') != hash_version
     if recompute_hash:
         # for our use case,
         # MD5 is good enough, fast enough and available natively
@@ -431,4 +464,5 @@ def get_image_hash(image):
         image['image_hash'] = hash
         image['hash_date'] = time.time()
         image['has_alpha'] = image_has_alpha(image)
+        image['hash_version'] = hash_version
     return image['image_hash']

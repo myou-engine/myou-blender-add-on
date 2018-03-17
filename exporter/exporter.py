@@ -431,11 +431,12 @@ def export_myou(path, scn):
             json_path = join(full_dir, 'scenes', scene_name, 'all.json')
             if os.path.exists(json_path):
                 jsonf = open(json_path)
-                textures = [img['file_name']
+                textures = [img['file_name']+suffix
                     for tex in json.load(jsonf) if tex['type'] == 'TEXTURE'
                         for fmt in tex['formats'].values()
                             for img in fmt
-                                if hasattr(img, 'keys') and 'file_name' in img
+                                for suffix in ['', '.gz']
+                                    if hasattr(img, 'keys') and 'file_name' in img
                 ]
                 used_textures.update(textures)
                 jsonf.close()
