@@ -14,20 +14,24 @@ COMPRESSED_SRGB8_ALPHA8_ETC2_EAC          = 0x9279
 plugin_dir = os.path.realpath(__file__).rsplit(os.sep,2)[0]
 # TODO: detect platform
 etcpak_binary = os.path.join(plugin_dir,'bin','etcpak.exe')
+convert_binary = os.path.join(plugin_dir,'bin','convert.exe')
 
 def encode_etc2_fast(in_path, out_path, sRGB, use_alpha):
     cwd = os.getcwd()
     temp = tempfile.gettempdir()
+    flip = os.path.join(temp, 'flip.png')
     os.chdir(temp)
     try:
         os.unlink(os.path.join(temp, 'out.pvr'))
         os.unlink(os.path.join(temp, 'outa.pvr'))
+        os.unlink(flip)
     except: pass
+    subprocess.Popen([convert_binary, in_path, '-flip', flip]).wait()
     if use_alpha:
-        process = subprocess.Popen([etcpak_binary, in_path, '-etc2', '-m'])
+        process = subprocess.Popen([etcpak_binary, flip, '-etc2', '-m'])
         out = 'outa.pvr'
     else:
-        process = subprocess.Popen([etcpak_binary, in_path, '-etc2', '-m', '-a'])
+        process = subprocess.Popen([etcpak_binary, flip, '-etc2', '-m', '-a'])
         out = 'out.pvr'
     process.wait()
     os.chdir(cwd)
@@ -35,6 +39,7 @@ def encode_etc2_fast(in_path, out_path, sRGB, use_alpha):
         raise Exception(' '.join([str(x) for x in
             ["etcpak failed with return code",process.returncode,"when encoding",in_path]]))
     shutil.move(os.path.join(temp, out), out_path)
+    os.unlink(flip)
     # compress
     with open(out_path, 'rb') as f_in, gzip.open(out_path+'.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)

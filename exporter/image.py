@@ -418,7 +418,8 @@ from os.path import exists, getmtime
 import time
 from bpy.path import abspath
 import hashlib, codecs
-hash_version = 1
+hash_version = 2 # increment when there's any change on texture conversion
+# TODO: It doesn't invalidate cache?
 
 def get_image_hash(image):
     recompute_hash = True
