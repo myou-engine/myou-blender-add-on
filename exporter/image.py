@@ -186,7 +186,7 @@ def export_images(dest_path, used_data):
                         fast = ''
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
-                        file_name = file_name_base + fast + '.etc'
+                        file_name = file_name_base + fast + '-{w}x{h}.etc2'.format(w=width, h=height)
                         exported_path = os.path.join(dest_path, file_name)
                         if not exists(exported_path):
                             encode_etc2_fast(get_png(), exported_path,
@@ -209,7 +209,7 @@ def export_images(dest_path, used_data):
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
                             quality = 'veryfast'
-                        file_name = file_name_base + fast + '.astc'
+                        file_name = file_name_base + fast + '-{w}x{h}.astc'.format(w=width, h=height)
                         exported_path = os.path.join(dest_path, file_name)
                         if not exists(exported_path):
                             encode_astc(get_png_or_jpg(), exported_path,
