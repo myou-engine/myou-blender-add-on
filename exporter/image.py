@@ -111,16 +111,18 @@ def export_images(dest_path, used_data):
         path_exists = os.path.isfile(real_path)
         # get_png_or_jpg is a function for format encoders that only understand png, jpg
         # TODO: Priorize packed image?
+        def get_png():
+            nonlocal tmp_filepath
+            if tmp_filepath is None:
+                tmp_filepath = tempfile.mktemp('.png')
+                save_image(image, tmp_filepath, 'PNG')
+            return tmp_filepath
         if path_exists and (image.file_format in ['PNG','JPEG'] or image.source == 'MOVIE'):
             get_png_or_jpg = lambda: real_path
+            if image.file_format == 'PNG':
+                get_png = get_png_or_jpg
         else:
-            def f():
-                nonlocal tmp_filepath
-                if tmp_filepath is None:
-                    tmp_filepath = tempfile.mktemp('.png')
-                    save_image(image, tmp_filepath, 'PNG')
-                return tmp_filepath
-            get_png_or_jpg = f # is this necessary? just in case
+            get_png_or_jpg = get_png
         uses_alpha = image['has_alpha'] # assigned in get_image_hash()
         # is_sRGB = not used_data['image_is_normal_map'].get(image.name, False)
         # if is_sRGB:
@@ -187,7 +189,7 @@ def export_images(dest_path, used_data):
                         file_name = file_name_base + fast + '.etc'
                         exported_path = os.path.join(dest_path, file_name)
                         if not exists(exported_path):
-                            encode_etc2_fast(get_png_or_jpg(), exported_path,
+                            encode_etc2_fast(get_png(), exported_path,
                                 is_sRGB, uses_alpha)
                         format_enum = get_etc2_format_enum(is_sRGB, uses_alpha)
                         rg11 = False
