@@ -199,7 +199,7 @@ def export_images(dest_path, used_data):
                         rg11 = False
                         # TODO: detect punchthrough alpha?
                         image_info['formats']['etc2'].append({
-                            'width': image.size[0], 'height': image.size[1],
+                            'width': width, 'height': height,
                             'file_name': file_name, 'file_size': fsize(exported_path),
                             'sRGB': is_sRGB, 'format_enum': format_enum,
                             'bpp':8 if uses_alpha or rg11 else 4,
