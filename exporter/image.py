@@ -183,6 +183,29 @@ def export_images(dest_path, used_data):
 
                 if path_exists or image.packed_file:
 
+                    # TODO: Don't convert and flip images all the time!
+
+                    if scene.myou_export_ETC1 and not uses_alpha:
+                        fast = ''
+                        if scene.myou_export_tex_quality=='FAST':
+                            fast = '-fast'
+                        file_name = file_name_base + fast + '-{w}x{h}.etc1'.format(w=width, h=height)
+                        exported_path = os.path.join(dest_path, file_name)
+                        if not exists(exported_path):
+                            tmp = tempfile.mktemp()
+                            save_image(image, tmp, 'PNG', resize=(width, height))
+                            encode_etc2_fast(tmp, exported_path,
+                                is_sRGB, False, False)
+                            os.unlink(tmp)
+                        format_enum = get_etc2_format_enum(is_sRGB, False, False)
+                        # TODO: detect punchthrough alpha?
+                        image_info['formats']['etc2'].append({
+                            'width': width, 'height': height,
+                            'file_name': file_name, 'file_size': fsize(exported_path),
+                            'sRGB': is_sRGB, 'format_enum': format_enum,
+                            'bpp': 4,
+                        })
+
                     if scene.myou_export_ETC2:
                         fast = ''
                         if scene.myou_export_tex_quality=='FAST':
@@ -193,9 +216,9 @@ def export_images(dest_path, used_data):
                             tmp = tempfile.mktemp()
                             save_image(image, tmp, 'PNG', resize=(width, height))
                             encode_etc2_fast(tmp, exported_path,
-                                is_sRGB, uses_alpha)
+                                is_sRGB, uses_alpha, True)
                             os.unlink(tmp)
-                        format_enum = get_etc2_format_enum(is_sRGB, uses_alpha)
+                        format_enum = get_etc2_format_enum(is_sRGB, uses_alpha, True)
                         rg11 = False
                         # TODO: detect punchthrough alpha?
                         image_info['formats']['etc2'].append({
