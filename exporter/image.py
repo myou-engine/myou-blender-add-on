@@ -199,7 +199,7 @@ def export_images(dest_path, used_data):
                             os.unlink(tmp)
                         format_enum = get_etc2_format_enum(is_sRGB, False, False)
                         # TODO: detect punchthrough alpha?
-                        image_info['formats']['etc2'].append({
+                        image_info['formats']['etc1'].append({
                             'width': width, 'height': height,
                             'file_name': file_name, 'file_size': fsize(exported_path),
                             'sRGB': is_sRGB, 'format_enum': format_enum,
