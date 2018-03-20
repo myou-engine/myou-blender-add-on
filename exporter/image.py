@@ -7,6 +7,7 @@ from math import *
 from json import dumps, loads
 from collections import defaultdict
 from .etc import *
+from .pvrtc import *
 from .astc import *
 from . import progress
 tempdir  = tempfile.gettempdir()
@@ -226,6 +227,29 @@ def export_images(dest_path, used_data):
                             'file_name': file_name, 'file_size': fsize(exported_path),
                             'sRGB': is_sRGB, 'format_enum': format_enum,
                             'bpp':8 if uses_alpha or rg11 else 4,
+                        })
+
+                    if scene.myou_export_PVRTC:
+                        fast = ''
+                        if scene.myou_export_tex_quality=='FAST':
+                            fast = '-fast'
+                        file_name = file_name_base + fast + '-{w}x{h}.pvr'.format(w=width, h=height)
+                        exported_path = os.path.join(dest_path, file_name)
+                        bpp = int(scene.myou_export_pvr_mode)
+                        if not exists(exported_path):
+                            tmp = tempfile.mktemp()+'.png'
+                            save_image(image, tmp, 'PNG', resize=(width, height))
+                            encode_pvrtc(tmp, exported_path,
+                                bool(fast), uses_alpha, bpp==2)
+                            os.unlink(tmp)
+                        format_enum = get_pvrtc_format_enum(is_sRGB, uses_alpha, bpp==2)
+                        rg11 = False
+                        # TODO: detect punchthrough alpha?
+                        image_info['formats']['pvrtc'].append({
+                            'width': width, 'height': height,
+                            'file_name': file_name, 'file_size': fsize(exported_path),
+                            'sRGB': is_sRGB, 'format_enum': format_enum,
+                            'bpp': bpp,
                         })
 
                     if scene.myou_export_ASTC:
