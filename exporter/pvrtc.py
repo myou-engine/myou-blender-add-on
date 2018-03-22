@@ -11,11 +11,6 @@ pvrtex_binary = os.path.join(plugin_dir,'bin','PVRTexToolCLI/Windows_x86_64/PVRT
 
 def encode_pvrtc(in_path, out_path, use_fast, use_alpha, use_2bpp):
     cwd = os.getcwd()
-    temp = tempfile.gettempdir()
-    os.chdir(temp)
-    try:
-        os.unlink(os.path.join(temp, 'out.pvr'))
-    except: pass
     format = 'PVRTC1_2' if use_2bpp else 'PVRTC1_4'
     if not use_alpha:
         format += '_RGB'

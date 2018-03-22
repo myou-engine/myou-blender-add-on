@@ -6,6 +6,7 @@ import os
 from math import *
 from json import dumps, loads
 from collections import defaultdict
+from .s3tc import *
 from .etc import *
 from .pvrtc import *
 from .astc import *
@@ -185,6 +186,20 @@ def export_images(dest_path, used_data):
                 if path_exists or image.packed_file:
 
                     # TODO: Don't convert and flip images all the time!
+
+                    if scene.myou_export_DXT:
+                        file_name = file_name_base + '-{w}x{h}.dds'.format(w=width, h=height)
+                        exported_path = os.path.join(dest_path, file_name)
+                        if not exists(exported_path):
+                            tmp = tempfile.mktemp()+'.png'
+                            save_image(image, tmp, 'PNG', resize=(width, height))
+                            encode_s3tc(tmp, exported_path, uses_alpha)
+                            os.unlink(tmp)
+                        # TODO: detect punchthrough alpha?
+                        image_info['formats']['dds'].append({
+                            'width': width, 'height': height,
+                            'file_name': file_name, 'file_size': fsize(exported_path),
+                        })
 
                     if scene.myou_export_ETC1 and not uses_alpha:
                         fast = ''
