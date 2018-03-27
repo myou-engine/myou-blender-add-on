@@ -289,7 +289,7 @@ def register():
     bpy.types.Scene.myou_export_compress_scene = BoolProperty(name='Compress scene files', default=True)
     bpy.types.Scene.myou_export_convert_to_quats = BoolProperty(name='Convert all rotations to quaternions', default=False)
     bpy.types.Scene.myou_export_PNGJPEG = BoolProperty(name='PNG/JPEG', default=True)
-    bpy.types.Scene.myou_export_DXT = BoolProperty(name='S3TC', default=False)
+    bpy.types.Scene.myou_export_DXT = BoolProperty(name='DDS', default=False)
     bpy.types.Scene.myou_export_ETC1 = BoolProperty(name='ETC1', default=False)
     bpy.types.Scene.myou_export_ETC2 = BoolProperty(name='ETC2', default=False)
     bpy.types.Scene.myou_export_PVRTC = BoolProperty(name='PVRTC', default=False)
