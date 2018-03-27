@@ -17,15 +17,16 @@ type_to_ext = {'JPEG': 'jpg', 'TIFF': 'tif', 'TARGA': 'tga'}
 
 astc_binary_checked = False
 
+plugin_dir = os.path.realpath(__file__).rsplit(os.sep,2)[0]
+# TODO: detect platform
+convert_binary = os.path.join(plugin_dir,'bin','convert.exe')
+
 def previous_POT(x):
     if x<=0: return 0
     return int(pow(2, floor(log(x)/log(2))))
 
 def save_image(image, path, new_format, resize=None):
     name = image.name
-    if resize:
-        image = image.copy()
-        image.scale(resize[0], resize[1])
 
     # Store current render settings
     settings = bpy.context.scene.render.image_settings
@@ -42,7 +43,25 @@ def save_image(image, path, new_format, resize=None):
     # It only means that the save command will use the current scene's render settings.
     has_error = False
     try:
-        image.save_render(path)
+        if image.packed_file:
+            # TODO: save stored file instead of this
+            # otherwise color profile may be messing things up
+            image.save_render(path)
+            src = path
+        else:
+            src = bpy.path.abspath(image.filepath)
+        if resize:
+            # TODO: Use fast setting to use scale instead of resize
+            print('s11')
+            if subprocess.Popen([convert_binary, src, '-resize',
+                '{}x{}!'.format(*resize), path]).wait():
+                raise Exception("Error while resizing "+image.name)
+            print('s12')
+        else:
+            print('s13')
+            if subprocess.Popen([convert_binary, src, path]).wait():
+                raise Exception("Error while converting "+image.name)
+            print('s14')
     except:
         has_error = True
 
@@ -51,9 +70,6 @@ def save_image(image, path, new_format, resize=None):
     settings.color_mode = mode
     settings.color_depth = depth
 
-    if resize:
-        image.user_clear()
-        bpy.data.images.remove(image)
     if has_error:
         raise Exception("Couldn't export image: "+image.name+". Please replace it or disable the texture slot.")
 
@@ -188,8 +204,8 @@ def export_images(dest_path, used_data):
                     # TODO: Don't convert and flip images all the time!
 
                     if scene.myou_export_DXT:
-                        # TODO: For some reason non-square textures fail
-                        # Making them square for now
+                        # TODO: For some reason SOME non-square textures fail
+                        # to display in the engine. Making them square for now
                         if scene.myou_export_square=='SMALLER':
                             width = height = min(width, height)
                         else:

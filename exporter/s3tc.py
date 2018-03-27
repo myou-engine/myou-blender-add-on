@@ -17,6 +17,8 @@ def encode_s3tc(in_path, out_path, use_alpha):
         command += ['-DXT5']
     else:
         command += ['-DXT1']
+    if 0: # fast quality
+        command += ['-dxtQuality', 'superfast']
     process = subprocess.Popen(command+['-out', out_path])
     process.wait()
     if process.returncode != 0:
