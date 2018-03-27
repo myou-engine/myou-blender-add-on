@@ -9,7 +9,7 @@ plugin_dir = os.path.realpath(__file__).rsplit(os.sep,2)[0]
 # TODO: detect platform
 pvrtex_binary = os.path.join(plugin_dir,'bin','PVRTexToolCLI/Windows_x86_64/PVRTexToolCLI.exe')
 
-def encode_pvrtc(in_path, out_path, use_fast, use_alpha, use_2bpp):
+def encode_pvrtc(in_path, out_path, use_fast, use_alpha, use_2bpp, use_smaller):
     cwd = os.getcwd()
     format = 'PVRTC1_2' if use_2bpp else 'PVRTC1_4'
     if not use_alpha:
@@ -18,9 +18,12 @@ def encode_pvrtc(in_path, out_path, use_fast, use_alpha, use_2bpp):
     format += ',lRGB' # TODO: sRGB
     quality = 'pvrtcveryfast' if use_fast else 'pvrtcbest'
 
+    square = '+'
+    if use_smaller:
+        square = '-'
     # dither?
     command = [pvrtex_binary, '-i', in_path, '-f', format, '-mfilter', 'cubic',
-        '-squarecanvas', '+', '-m', '-flip', 'y', '-legacypvr', '-o', out_path]
+        '-squarecanvas', square, '-m', '-flip', 'y', '-legacypvr', '-o', out_path]
     process = subprocess.Popen(command)
     process.wait()
     os.chdir(cwd)

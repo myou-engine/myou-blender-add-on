@@ -188,6 +188,12 @@ def export_images(dest_path, used_data):
                     # TODO: Don't convert and flip images all the time!
 
                     if scene.myou_export_DXT:
+                        # TODO: For some reason non-square textures fail
+                        # Making them square for now
+                        if scene.myou_export_square=='SMALLER':
+                            width = height = min(width, height)
+                        else:
+                            width = height = max(width, height)
                         file_name = file_name_base + '-{w}x{h}.dds'.format(w=width, h=height)
                         exported_path = os.path.join(dest_path, file_name)
                         if not exists(exported_path):
@@ -245,17 +251,22 @@ def export_images(dest_path, used_data):
                         })
 
                     if scene.myou_export_PVRTC:
-                        fast = ''
+                        fast = square = ''
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
-                        file_name = file_name_base + fast + '-{w}x{h}.pvr'.format(w=width, h=height)
+                        use_smaller = scene.myou_export_square == 'SMALLER'
+                        if use_smaller:
+                            w = h = min(width, height)
+                        else:
+                            w = h = max(width, height)
+                        file_name = file_name_base + fast + '-{w}x{h}.pvr'.format(w=w, h=h)
                         exported_path = os.path.join(dest_path, file_name)
                         bpp = int(scene.myou_export_pvr_mode)
                         if not exists(exported_path):
                             tmp = tempfile.mktemp()+'.png'
                             save_image(image, tmp, 'PNG', resize=(width, height))
                             encode_pvrtc(tmp, exported_path,
-                                bool(fast), uses_alpha, bpp==2)
+                                bool(fast), uses_alpha, bpp==2, use_smaller)
                             os.unlink(tmp)
                         format_enum = get_pvrtc_format_enum(is_sRGB, uses_alpha, bpp==2)
                         rg11 = False

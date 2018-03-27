@@ -48,6 +48,7 @@ class LayoutDemoPanel(bpy.types.Panel):
             layout.label(text="Encode textures:")
             layout.prop(scene, "myou_ensure_pot_textures")
             layout.prop(scene, "myou_export_tex_quality", expand=True)
+            layout.prop(scene, "myou_export_square")
 
             split = layout.split(percentage=0.9, align=True)
             row = split.row(align=True)
@@ -301,6 +302,13 @@ def register():
         name="Quality",
         description="Quality of encoded textures",
         default="FAST")
+    bpy.types.Scene.myou_export_square = EnumProperty(items=(
+            ("SMALLER", "Resize to be smaller", "Resize non-square textures to use the smaller dimension"),
+            ("BIGGER", "Resize to be bigger", "Resize non-square textures to use the bigger dimension"),
+        ),
+        name="Non-square textures",
+        description="Choose size when resizing non-square textures when they're required to be square",
+        default="SMALLER")
     bpy.types.Scene.myou_export_JPEG_compress = EnumProperty(items=(
             ("COMPRESS", "Compress to JPEG where possible", "Compress to JPEG where possible"),
             ("LOSSLESS", "Lossless except original JPEG", "Do not compress to JPEG (except for images already JPEG)"),
