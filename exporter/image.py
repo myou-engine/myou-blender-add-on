@@ -382,8 +382,7 @@ def export_images(dest_path, used_data):
                 # unsuported video file_format in blender
                 if file_format != file_name_extension:
                     print("WARNING: File format doesn't match file name extension")
-                if file_name_extension in ['mp4', 'webm', 'ogg']:
-                    file_format = file_name_extension
+                file_format = file_name_extension
 
                 image_info['formats'][file_format].append({
                     'width': image.size[0], 'height': image.size[1],
@@ -507,7 +506,7 @@ from os.path import exists, getmtime
 import time
 from bpy.path import abspath
 import hashlib, codecs
-hash_version = 2 # increment when there's any change on texture conversion
+hash_version = 3 # increment when there's any change on texture conversion
 # TODO: It doesn't invalidate cache?
 
 def get_image_hash(image):
@@ -533,7 +532,8 @@ def get_image_hash(image):
         if date == 0 and exists(filename):
             date = getmtime(filename)
         recompute_hash = date > image['hash_date'] \
-            or image.get('hash_version') != hash_version
+            or image.get('hash_version') != hash_version \
+            or image.get('hash_file_name') != image.filepath
     if recompute_hash:
         # for our use case,
         # MD5 is good enough, fast enough and available natively
@@ -551,6 +551,7 @@ def get_image_hash(image):
             # file not found, always reset hash next time
             image['image_hash'] = ''
             image['hash_date'] = 0
+            image['hash_file_name'] = ''
             image['has_alpha'] = True
             return
         # convert digest to unpadded base64url
@@ -559,5 +560,6 @@ def get_image_hash(image):
         image['image_hash'] = hash
         image['hash_date'] = time.time()
         image['has_alpha'] = image_has_alpha(image)
+        image['hash_file_name'] = image.filepath
         image['hash_version'] = hash_version
     return image['image_hash']
