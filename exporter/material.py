@@ -9,7 +9,7 @@ from . import mat_code_generator
 
 def mat_to_json(mat, scn, used_data):
     layers = used_data['material_layers'][mat.name]
-    if scn.render.engine != 'CYCLES':
+    if scn.render.engine != 'CYCLES' and not mat_nodes.is_blender_pbr_material(mat):
         # Blender internal or Blender game
 
         # We'll disable "this layer only" lights,
@@ -77,7 +77,7 @@ def mat_to_json(mat, scn, used_data):
 
 
 def world_material_to_json(scn):
-    if scn.render.engine == 'CYCLES' and scn.world.use_nodes:
+    if mat_nodes.is_blender_pbr_material(scn.world) and scn.world.use_nodes:
         tree = mat_nodes.export_nodes_of_material(scn.world)
         tree['is_background'] = True
         gen = mat_code_generator.NodeTreeShaderGenerator(tree, [])
@@ -109,7 +109,7 @@ def has_node(tree, type):
 
 def get_pass_of_material(mat, scn):
     pass_ = 0
-    if scn.render.engine != 'CYCLES':
+    if not mat_nodes.is_blender_pbr_material(mat):
         # Blender internal or Blender game
         if mat.use_transparency and \
             mat.transparency_method == 'RAYTRACE':

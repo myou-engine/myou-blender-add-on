@@ -3,7 +3,7 @@
 from .object import ob_to_json, ob_in_layers, ob_to_json_recursive
 from .material import mat_to_json, world_material_to_json, get_shader_lib
 from .animation import get_animation_data_strips, action_to_json
-from . import image, progress
+from . import image, progress, mat_nodes
 from .util_convert import linearrgb_to_srgb
 
 import json
@@ -38,6 +38,8 @@ def search_scene_used_data(scene):
         'actions': [],
         'action_users': {}, # only one user (ob or material) of each, to get the channels
         'sounds': {},
+        'cycles_materials_users': 0,
+        'binternal_materials_users': 0,
     }
 
     #recursive search methods for each data type:
@@ -88,6 +90,10 @@ def search_scene_used_data(scene):
         mlayers = used_data['material_layers'][m.name]
         for i,l in enumerate(layers):
             mlayers[i] = l or mlayers[i]
+        if mat_nodes.is_blender_pbr_material(m):
+            used_data['cycles_materials_users'] += 1
+        else:
+            used_data['binternal_materials_users'] += 1
         return used_data['material_use_tangent'].get(m.name, False)
 
     # NOTE: It assumes that there is no cyclic dependencies in node groups.
@@ -163,7 +169,7 @@ def search_scene_used_data(scene):
     print('\nSearching used data in the scene: ' + scene.name + '\n')
 
     # Export background textures(s)
-    if scene.render.engine == 'CYCLES' and scene.world.use_nodes:
+    if getattr(scene.world, 'use_nodes'):
         search_in_node_tree(scene.world.node_tree, scene.world, [False]*20)
 
     for ob in scene.objects:

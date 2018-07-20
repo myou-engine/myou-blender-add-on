@@ -175,6 +175,8 @@ OUTPUT_NODE_TYPE = {
     'BLENDER_GAME': ['OUTPUT'],
     'CYCLES': ['OUTPUT_MATERIAL', 'OUTPUT_WORLD'],
 }
+# TODO: Test if we can export blender internal from cycles
+CROSS_COMPATIBLE_TYPES = ['OUTPUT_MATERIAL', 'OUTPUT_WORLD']
 
 def make_nodeless_tree(mat):
     color = list(mat.diffuse_color)+[1.0]
@@ -201,11 +203,16 @@ def export_nodes_of_material(mat): # NOTE: mat can also be a world
     output_node = None
     nodes = {}
     ramps = {}
-    # TODO: Detect engine of exported scene and not the current one
     out_types = OUTPUT_NODE_TYPE[bpy.context.scene.render.engine]
     for node in mat.node_tree.nodes:
         if node.type in out_types:
             output_node = node
+    # If we don't have output node of the selected render engine,
+    # let's find one for other types
+    if not output_node:
+        for node in mat.node_tree.nodes:
+            if node.type in CROSS_COMPATIBLE_TYPES:
+                output_node = node
     if output_node:
         common_attributes = set(dir(output_node))
     for node in mat.node_tree.nodes:
@@ -218,3 +225,12 @@ def export_nodes_of_material(mat): # NOTE: mat can also be a world
         'output_node_name': output_node.name if output_node else ''
     }
     return tree
+
+def is_blender_pbr_material(mat):
+    # TODO: If a material doesn't have nodes, should it be detected
+    # as cycles if most materials are cycles?
+    if mat and mat.use_nodes:
+        for node in mat.node_tree.nodes:
+            if node.type in ['OUTPUT_MATERIAL', 'OUTPUT_WORLD']:
+                return True
+    return False

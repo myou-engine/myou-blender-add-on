@@ -216,7 +216,8 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             size_y = ob.data.size if ob.data.shape == 'SQUARE' else ob.data.size_y
         elif ob.data.type != 'HEMI':
             size_x = size_y = ob.data.shadow_soft_size
-        if scn.render.engine != 'CYCLES':
+        used_data
+        if used_data['binternal_materials_users'] > used_data['cycles_materials_users']:
             color = list(ob.data.color*ob.data.energy)
             energy = 1 # we never modified this in the end
         elif ob.data.use_nodes and ob.data.node_tree and 'Emission' in ob.data.node_tree.nodes:
