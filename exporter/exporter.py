@@ -120,7 +120,8 @@ def search_scene_used_data(scene):
                     use_normal_map = True
             elif n.bl_idname == 'ShaderNodeGroup':
                 if n.node_tree:
-                    search_in_node_tree(n.node_tree, mat, layers, i+1)
+                    if search_in_node_tree(n.node_tree, mat, layers, i+1):
+                        use_normal_map = True
         return use_normal_map
 
     def add_texture(t, mat, i=0, is_normal=False): # internal/game only
