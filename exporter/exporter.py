@@ -170,7 +170,7 @@ def search_scene_used_data(scene):
     print('\nSearching used data in the scene: ' + scene.name + '\n')
 
     # Export background textures(s)
-    if getattr(scene.world, 'use_nodes'):
+    if scene.world and getattr(scene.world, 'use_nodes'):
         search_in_node_tree(scene.world.node_tree, scene.world, [False]*20)
 
     for ob in scene.objects:
