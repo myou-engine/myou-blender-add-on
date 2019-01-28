@@ -192,19 +192,21 @@ def search_scene_used_data(scene):
 
 def scene_data_to_json(scn=None):
     scn = scn or bpy.context.scene
-    world = scn.world or bpy.data.scenes['Scene'].world
+    if not scn.world:
+        bpy.ops.world.new()
+    world = scn.world
     sequences = (scn.sequence_editor and scn.sequence_editor.sequences_all) or []
     background_probe = {}
-    if hasattr(scn.world, 'probe_size'):
+    if hasattr(world, 'probe_size'):
         background_probe = dict(
             type='CUBEMAP',
             object='',
-            auto_refresh=scn.world.probe_refresh_auto,
-            compute_sh=scn.world.probe_compute_sh,
+            auto_refresh=world.probe_refresh_auto,
+            compute_sh=world.probe_compute_sh,
             double_refresh=False,
             same_layers=False,
-            size=scn.world.probe_size,
-            sh_quality=scn.world.probe_sh_quality,
+            size=world.probe_size,
+            sh_quality=world.probe_sh_quality,
             # These are irrelevant as only one quad is rendered
             clip_start=1,
             clip_end=1000,
