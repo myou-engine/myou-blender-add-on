@@ -121,7 +121,7 @@ def mesh_hash(ob, used_data, extra_data):
     material_names = [m.name for m in ob.material_slots]
     material_indices = [material_names.index(name) for name in material_names]
     hash.update(b'mt'+bytes(material_indices))
-    material_tangents = [used_data['material_use_tangent'][name]
+    material_tangents = [used_data['material_use_tangent'].get(name,False)
         for name in material_names]
     hash.update(b'tg'+bytes(material_tangents))
 
