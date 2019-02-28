@@ -189,6 +189,12 @@ uniform vec2 unfbsdfsamples;
     # ('#ifdef USE_BACKFACE\n'
     # '			 && backface_depth(ivec2(co.xy), 0) < ray.z + viewpos.z\n'
     # '#endif\n', ''),
+
+    # This moves a float declaration to before the #ifs
+    # for compatibility with GLSL optimizer
+    ('float dist = min', 'dist = min'),
+    ('float dist = 1.0e15', 'dist = 1.0e15'),
+    ('#ifdef CORRECTION_BOX', 'float dist;\n#ifdef CORRECTION_BOX'),
 ]
 
 argument_replacements = [

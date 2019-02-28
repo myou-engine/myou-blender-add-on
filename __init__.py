@@ -82,13 +82,13 @@ def register():
 
 def reload_modules():
     from .exporter import mesh, phy_mesh, image, s3tc, etc, pvrtc, material, util_convert, \
-        shader_lib_extractor, mat_nodes, mat_code_generator, mat_binternal, \
+        optimize_glsl, shader_lib_extractor, mat_nodes, mat_code_generator, mat_binternal, \
         object, mesh_hash, animation
     from . import export_panel, winutils
     # For reloading changes in all modules when developing
     for m in [animation,mesh, phy_mesh, object, mesh_hash, s3tc, etc, pvrtc, image,
             shader_lib_extractor, mat_nodes, mat_code_generator, mat_binternal,
-            material, util_convert, exporter, winutils, export_panel] + \
+            material, util_convert, optimize_glsl, exporter, winutils, export_panel] + \
             auto_register_modules:
         imp.reload(m)
 

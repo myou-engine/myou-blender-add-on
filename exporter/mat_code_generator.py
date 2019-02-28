@@ -138,15 +138,15 @@ class NodeTreeShaderGenerator:
         clip_head = clip_body = []
         if not self.is_background:
             clip_head = [
-                '#ifdef CLIPPING_PLANE',
+                # '#ifdef CLIPPING_PLANE',
                 'uniform vec4 unf_clipping_plane;',
-                '#endif',
+                # '#endif',
             ]
             clip_body = [
-                '#ifdef CLIPPING_PLANE',
+                # '#ifdef CLIPPING_PLANE',
                 'if(dot({}, unf_clipping_plane)<0.0) discard;'\
                     .format(self.view_position().to_vec4()),
-                '#endif',
+                # '#endif',
             ]
 
         return '\n'.join(

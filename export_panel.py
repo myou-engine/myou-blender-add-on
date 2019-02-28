@@ -43,6 +43,7 @@ class LayoutDemoPanel(bpy.types.Panel):
             layout.prop(scene, "myou_export_goto_start_timeline")
             layout.prop(scene, "myou_export_compress_scene")
             layout.prop(scene, "myou_export_convert_to_quats")
+            layout.prop(scene, "myou_export_optimize_glsl")
             layout.prop(scene, "myou_export_copy_files")
 
             layout.label(text="Encode textures:")
@@ -288,6 +289,7 @@ def register():
     bpy.types.Scene.myou_export_goto_start_timeline = BoolProperty(name='Go to start of timeline', default=False)
     bpy.types.Scene.myou_export_compress_scene = BoolProperty(name='Compress scene files', default=True)
     bpy.types.Scene.myou_export_convert_to_quats = BoolProperty(name='Convert all rotations to quaternions', default=False)
+    bpy.types.Scene.myou_export_optimize_glsl = BoolProperty(name='Optimize GLSL shaders', default=False)
     bpy.types.Scene.myou_export_PNGJPEG = BoolProperty(name='PNG/JPEG', default=True)
     bpy.types.Scene.myou_export_DXT = BoolProperty(name='DDS', default=False)
     bpy.types.Scene.myou_export_ETC1 = BoolProperty(name='ETC1', default=False)

@@ -5,6 +5,7 @@ from .material import mat_to_json, world_material_to_json, get_shader_lib
 from .animation import get_animation_data_strips, action_to_json
 from . import image, progress, mat_nodes
 from .util_convert import linearrgb_to_srgb
+from .optimize_glsl import optimize_glsl
 
 import json
 from json import dumps, loads
@@ -323,7 +324,12 @@ def whole_scene_to_json(scn, used_data, textures_path):
             'wrap': 'C',
         })
     # We must export shader lib after materials, but engine has to read it before
-    ret.append({"type":"SHADER_LIB","code": get_shader_lib(mat_json+world_mat_list)})
+    shader_lib = get_shader_lib(mat_json+world_mat_list)
+    if scn.myou_export_optimize_glsl:
+        for mat in mat_json + world_mat_list:
+            mat['fragment'] = optimize_glsl([shader_lib, mat['fragment']])
+    else:
+        ret.append({"type":"SHADER_LIB","code": shader_lib})
     ret += image_json + mat_json + act_json
     # Final JSON encoding, without spaces
     retb = dumps(ret, separators=(',',':')).encode('utf8')
