@@ -66,7 +66,7 @@ def save_image(image, path, new_format, resize=None):
         has_error = True
 
     # Restore previous render settings
-    settings.file_format = format
+    settings.file_format = format or None
     settings.color_mode = mode
     settings.color_depth = depth
 
