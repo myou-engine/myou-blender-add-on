@@ -80,6 +80,7 @@ def world_material_to_json(scn):
     if mat_nodes.is_blender_pbr_material(scn.world) and scn.world.use_nodes:
         tree = mat_nodes.export_nodes_of_material(scn.world)
         tree['is_background'] = True
+        ramps = tree['ramps']
         gen = mat_code_generator.NodeTreeShaderGenerator(tree, [])
 
         code = gen.get_code()
@@ -94,6 +95,7 @@ def world_material_to_json(scn):
             fragment=code,
             uniforms=uniforms,
             varyings=varyings,
+            ramps=ramps, # To be removed and converted to textures in exporter.py
             fixed_z=1,
         )
     return None
