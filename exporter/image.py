@@ -50,7 +50,7 @@ def save_image(image, path, new_format, resize=None):
             src = path
         else:
             src = bpy.path.abspath(image.filepath)
-        if resize:
+        if resize and (resize[0] != image.size[0] or resize[1] != image.size[1]):
             # TODO: Use fast setting to use scale instead of resize
             print('s11')
             if subprocess.Popen([convert_binary, src, '-resize',
