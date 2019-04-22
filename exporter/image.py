@@ -212,6 +212,7 @@ def export_images(dest_path, used_data):
                             width = height = max(width, height)
                         file_name = file_name_base + '-{w}x{h}.dds'.format(w=width, h=height)
                         exported_path = os.path.join(dest_path, file_name)
+                        print("S3TC out path:", exported_path)
                         if not exists(exported_path):
                             tmp = tempfile.mktemp()+'.png'
                             save_image(image, tmp, 'PNG', resize=(width, height))
