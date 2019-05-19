@@ -25,7 +25,7 @@ def previous_POT(x):
     if x<=0: return 0
     return int(pow(2, floor(log(x)/log(2))))
 
-def save_image(image, path, new_format, resize=None):
+def save_image(image, path, new_format, resize=None, flip=False):
     name = image.name
 
     # Store current render settings
@@ -50,18 +50,27 @@ def save_image(image, path, new_format, resize=None):
             src = path
         else:
             src = bpy.path.abspath(image.filepath)
-        if resize and (resize[0] != image.size[0] or resize[1] != image.size[1]):
+        if not resize:
+            resize = image.size
+        if flip:
             # TODO: Use fast setting to use scale instead of resize
-            print('s11')
+            print('resizing with imagemagick')
+            if subprocess.Popen([convert_binary, src, '-resize',
+                '{}x{}!'.format(*resize), '-flip', path]).wait():
+                raise Exception("Error while resizing "+image.name)
+            print('resizing finished')
+        elif resize[0] != image.size[0] or resize[1] != image.size[1]:
+            # TODO: Use fast setting to use scale instead of resize
+            print('resizing with imagemagick')
             if subprocess.Popen([convert_binary, src, '-resize',
                 '{}x{}!'.format(*resize), path]).wait():
                 raise Exception("Error while resizing "+image.name)
-            print('s12')
+            print('resizing finished')
         else:
-            print('s13')
+            print('converting with imagemagick')
             if subprocess.Popen([convert_binary, src, path]).wait():
                 raise Exception("Error while converting "+image.name)
-            print('s14')
+            print('converting finished')
     except:
         has_error = True
 
@@ -215,7 +224,7 @@ def export_images(dest_path, used_data):
                         print("S3TC out path:", exported_path)
                         if not exists(exported_path):
                             tmp = tempfile.mktemp()+'.png'
-                            save_image(image, tmp, 'PNG', resize=(width, height))
+                            save_image(image, tmp, 'PNG', resize=(width, height), flip=True)
                             encode_s3tc(tmp, exported_path, uses_alpha)
                             os.unlink(tmp)
                         # TODO: detect punchthrough alpha?

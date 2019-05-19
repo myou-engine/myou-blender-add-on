@@ -44,7 +44,7 @@ compressonator_binary = os.path.join(plugin_dir,'bin','CompressonatorCLI', 'Comp
 
 def encode_s3tc(in_path, out_path, use_alpha):
     if os.path.exists(compressonator_binary):
-        command = [compressonator_binary, '-fd', ]
+        command = [compressonator_binary, '-miplevels', '99', '-fd', ]
         if use_alpha:
             command += ['DXT5']
         else:
