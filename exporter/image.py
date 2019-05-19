@@ -137,7 +137,7 @@ def export_images(dest_path, used_data):
             return tmp_filepath
         if path_exists and (image.file_format in ['PNG','JPEG'] or image.source == 'MOVIE'):
             get_png_or_jpg = lambda: real_path
-            if image.file_format == 'PNG':
+            if image.file_format in ['PNG', 'TGA', 'TARGA']:
                 get_png = get_png_or_jpg
         else:
             get_png_or_jpg = get_png
