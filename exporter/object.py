@@ -30,8 +30,16 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             scn.objects.link(nob)
             for attr in ('location', 'rotation_euler', 'rotation_quaternion',
                 'parent', 'matrix_parent_inverse', 'scale', 'color',
-                'rotation_mode'):
+                'rotation_mode', 'parent_type', 'parent_bone', 'dupli_group'):
                     setattr(nob, attr, getattr(ob, attr))
+            for attr in ('physics_type', 'radius', 'use_anisotropic_friction',
+                'friction_coefficients', 'collision_group', 'collision_mask',
+                'collision_bounds_type', 'collision_margin',
+                'use_collision_compound', 'mass', 'use_sleep', 'use_ghost',
+                'lock_location_x', 'lock_location_y', 'lock_location_z',
+                'form_factor', 'step_height', 'jump_speed', 'fall_speed'):
+                    setattr(nob.game, attr, getattr(ob.game, attr))
+            # TODO: PROBES
             for k,v in ob.items():
                 nob[k] = v
             ob = nob
