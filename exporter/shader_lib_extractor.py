@@ -309,7 +309,7 @@ precision highp int;
         # remove unused functions
         # we're adding '' and 'material_preview_matcap' to ensure we add
         # the preamble and uniforms/globals, respectively
-        used = {'', 'material_preview_matcap', 'mul', 'color_to_blender_normal_new_shading', 'distance_based_roughness'}
+        used = {'', 'material_preview_matcap', 'mul', 'color_to_blender_normal_new_shading', 'distance_based_roughness', 'srgb_to_linearrgb'}
         call = re.compile(r"\b\w+\s*\(", flags=re.DOTALL)
         def add_used(code):
             for name in call.findall(code):
