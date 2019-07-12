@@ -42,7 +42,7 @@ crunch_binary = os.path.join(plugin_dir,'bin','crunch_x64.exe')
 
 compressonator_binary = os.path.join(plugin_dir,'bin','CompressonatorCLI', 'CompressonatorCLI.exe')
 
-def encode_s3tc(in_path, out_path, use_alpha):
+def encode_s3tc(in_path, out_path, use_alpha, use_gzip):
     if os.path.exists(compressonator_binary):
         command = [compressonator_binary, '-miplevels', '99', '-fd', ]
         if use_alpha:
@@ -70,5 +70,6 @@ def encode_s3tc(in_path, out_path, use_alpha):
             raise Exception(' '.join([str(x) for x in
                 ["Crunch failed with return code",process.returncode,"when encoding",in_path]]))
     # compress
-    with open(out_path, 'rb') as f_in, gzip.open(out_path+'.gz', 'wb') as f_out:
-        shutil.copyfileobj(f_in, f_out)
+    if use_gzip:
+        with open(out_path, 'rb') as f_in, gzip.open(out_path+'.gz', 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)

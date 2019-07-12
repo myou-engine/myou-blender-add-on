@@ -17,7 +17,7 @@ plugin_dir = os.path.realpath(__file__).rsplit(os.sep,2)[0]
 etcpak_binary = os.path.join(plugin_dir,'bin','etcpak.exe')
 convert_binary = os.path.join(plugin_dir,'bin','convert.exe')
 
-def encode_etc2_fast(in_path, out_path, sRGB, use_alpha, use_etc2):
+def encode_etc2_fast(in_path, out_path, sRGB, use_alpha, use_etc2, use_gzip):
     cwd = os.getcwd()
     temp = tempfile.gettempdir()
     flip = os.path.join(temp, 'flip.png')
@@ -45,8 +45,9 @@ def encode_etc2_fast(in_path, out_path, sRGB, use_alpha, use_etc2):
     shutil.move(os.path.join(temp, out), out_path)
     os.unlink(flip)
     # compress
-    with open(out_path, 'rb') as f_in, gzip.open(out_path+'.gz', 'wb') as f_out:
-        shutil.copyfileobj(f_in, f_out)
+    if use_gzip:
+        with open(out_path, 'rb') as f_in, gzip.open(out_path+'.gz', 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
 
 def get_etc2_format_enum(sRGB, use_alpha, use_etc2):
     # NOTE: Doesn't detect if etcpak wrote without alpha! (see above)

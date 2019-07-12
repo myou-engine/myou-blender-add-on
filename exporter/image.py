@@ -225,7 +225,7 @@ def export_images(dest_path, used_data):
                         if not exists(exported_path):
                             tmp = tempfile.mktemp()+'.png'
                             save_image(image, tmp, 'PNG', resize=(width, height), flip=True)
-                            encode_s3tc(tmp, exported_path, uses_alpha)
+                            encode_s3tc(tmp, exported_path, uses_alpha, scene.myou_export_compress_scene)
                             os.unlink(tmp)
                         # TODO: detect punchthrough alpha?
                         image_info['formats']['dds'].append({
@@ -243,7 +243,7 @@ def export_images(dest_path, used_data):
                             tmp = tempfile.mktemp()
                             save_image(image, tmp, 'PNG', resize=(width, height))
                             encode_etc2_fast(tmp, exported_path,
-                                is_sRGB, False, False)
+                                is_sRGB, False, False, scene.myou_export_compress_scene)
                             os.unlink(tmp)
                         format_enum = get_etc2_format_enum(is_sRGB, False, False)
                         # TODO: detect punchthrough alpha?
@@ -292,7 +292,7 @@ def export_images(dest_path, used_data):
                             tmp = tempfile.mktemp()+'.png'
                             save_image(image, tmp, 'PNG', resize=(width, height))
                             encode_pvrtc(tmp, exported_path,
-                                bool(fast), uses_alpha, bpp==2, use_smaller)
+                                bool(fast), uses_alpha, bpp==2, use_smaller, scene.myou_export_compress_scene)
                             os.unlink(tmp)
                         format_enum = get_pvrtc_format_enum(is_sRGB, uses_alpha, bpp==2)
                         rg11 = False
