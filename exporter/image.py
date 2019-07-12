@@ -325,53 +325,56 @@ def export_images(dest_path, used_data):
                             'sRGB': is_sRGB, 'format_enum': format_enum,
                         })
 
+                    if scene.myou_export_PNGJPEG:
+
+                        # Cases in which we can or must skip conversion
+                        just_copy_file = \
+                            path_exists and \
+                            (image.file_format == out_format or skip_conversion) and \
+                            lod_level is None
+                        if just_copy_file:
+                            file_name = file_name_base + '.' + out_ext
+                            exported_path = os.path.join(dest_path, file_name)
+                            # The next 2 lines are only necessary for skip_conversion
+                            out_ext = image.filepath_raw.split('.')[-1]
+                            image['exported_extension'] = out_ext
+                            if not exists(exported_path):
+                                shutil.copy(real_path, exported_path)
+                            image_info['formats'][out_format.lower()].append({
+                                'width': image.size[0], 'height': image.size[1],
+                                'file_name': file_name, 'file_size': fsize(exported_path),
+                            })
+                            print('Copied original image')
+                        else:
+                            if lod_level is not None:
+                                file_name = file_name_base + '-{w}x{h}.{e}'.format(w=width, h=height, e=out_ext)
+                                exported_path = os.path.join(dest_path, file_name)
+                                if not exists(exported_path):
+                                    save_image(image, exported_path, out_format, resize=(width, height))
+                                image_info['formats'][out_format.lower()].append({
+                                    'width': width, 'height': height,
+                                    'file_name': file_name,
+                                    'file_size': fsize(exported_path),
+                                })
+
+                                print('Image resized to '+str(lod_level)+' and exported as '+out_format)
+                            else:
+                                file_name = file_name_base + '.' + out_ext
+                                exported_path = os.path.join(dest_path, file_name)
+                                if not exists(exported_path):
+                                    save_image(image, exported_path, out_format)
+                                image_info['formats'][out_format.lower()].append({
+                                    'width': image.size[0], 'height': image.size[1],
+                                    'file_name': file_name, 'file_size': fsize(exported_path),
+                                })
+                                print('Image exported as '+out_format)
+
                     # image['exported_extension'] is only used
                     # for material.uniform['filepath'] which is only used
                     # in old versions of the engine.
                     # Current versions use the exported list of textures instead
                     image['exported_extension'] = out_ext
 
-                    # Cases in which we can or must skip conversion
-                    just_copy_file = \
-                        path_exists and \
-                        (image.file_format == out_format or skip_conversion) and \
-                        lod_level is None
-                    if just_copy_file:
-                        file_name = file_name_base + '.' + out_ext
-                        exported_path = os.path.join(dest_path, file_name)
-                        # The next 2 lines are only necessary for skip_conversion
-                        out_ext = image.filepath_raw.split('.')[-1]
-                        image['exported_extension'] = out_ext
-                        if not exists(exported_path):
-                            shutil.copy(real_path, exported_path)
-                        image_info['formats'][out_format.lower()].append({
-                            'width': image.size[0], 'height': image.size[1],
-                            'file_name': file_name, 'file_size': fsize(exported_path),
-                        })
-                        print('Copied original image')
-                    else:
-                        if lod_level is not None:
-                            file_name = file_name_base + '-{w}x{h}.{e}'.format(w=width, h=height, e=out_ext)
-                            exported_path = os.path.join(dest_path, file_name)
-                            if not exists(exported_path):
-                                save_image(image, exported_path, out_format, resize=(width, height))
-                            image_info['formats'][out_format.lower()].append({
-                                'width': width, 'height': height,
-                                'file_name': file_name,
-                                'file_size': fsize(exported_path),
-                            })
-
-                            print('Image resized to '+str(lod_level)+' and exported as '+out_format)
-                        else:
-                            file_name = file_name_base + '.' + out_ext
-                            exported_path = os.path.join(dest_path, file_name)
-                            if not exists(exported_path):
-                                save_image(image, exported_path, out_format)
-                            image_info['formats'][out_format.lower()].append({
-                                'width': image.size[0], 'height': image.size[1],
-                                'file_name': file_name, 'file_size': fsize(exported_path),
-                            })
-                            print('Image exported as '+out_format)
                 else:
                     raise Exception('\n'.join(['Image not found:',
                         'Name: ' + image.name,
