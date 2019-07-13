@@ -132,6 +132,7 @@ def export_images(dest_path, used_data):
             lod_levels = parse_lod_levels(tex_with_settings['lod_levels'])
         elif 'texture_lod_levels' in scene:
             lod_levels = parse_lod_levels(scene['texture_lod_levels'])
+        include_base_level = scene.get('include_base_level', True)
 
         real_path = bpy.path.abspath(image.filepath)
         tmp_filepath = None
@@ -182,13 +183,15 @@ def export_images(dest_path, used_data):
         if lod_levels:
             print('image:', image.name, 'has lod_levels', lod_levels)
 
-        base_level = None
-        if scene.myou_ensure_pot_textures:
-            width, height = image.size
-            potw = previous_POT(width)
-            poth = previous_POT(height)
-            if potw != width or poth != height:
-                base_level = [potw, poth]
+        base_level_list = []
+        if include_base_level:
+            base_level_list = [None]
+            if scene.myou_ensure_pot_textures:
+                width, height = image.size
+                potw = previous_POT(width)
+                poth = previous_POT(height)
+                if potw != width or poth != height:
+                    base_level_list = [[potw, poth]]
 
         if image.source == 'FILE':
             out_format = 'JPEG'
@@ -196,7 +199,7 @@ def export_images(dest_path, used_data):
             if uses_alpha:
                 out_format = 'PNG'
                 out_ext = 'png'
-            for lod_level in lod_levels+[base_level]:
+            for lod_level in lod_levels+base_level_list:
                 # Skip higher LoD levels configured in the scene
                 width, height = image.size
                 if lod_level:
