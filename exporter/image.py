@@ -264,7 +264,7 @@ def export_images(dest_path, used_data):
                             tmp = tempfile.mktemp()
                             save_image(image, tmp, 'PNG', resize=(width, height))
                             encode_etc2_fast(tmp, exported_path,
-                                is_sRGB, uses_alpha, True)
+                                is_sRGB, uses_alpha, True, scene.myou_export_compress_scene)
                             os.unlink(tmp)
                         format_enum = get_etc2_format_enum(is_sRGB, uses_alpha, True)
                         rg11 = False
