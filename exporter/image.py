@@ -56,19 +56,19 @@ def save_image(image, path, new_format, resize=None, flip=False):
             # TODO: Use fast setting to use scale instead of resize
             print('resizing with imagemagick')
             if subprocess.Popen([convert_binary, src, '-resize',
-                '{}x{}!'.format(*resize), '-flip', path]).wait():
+                '{}x{}!'.format(*resize), '-flip', '-depth', '8', path]).wait():
                 raise Exception("Error while resizing "+image.name)
             print('resizing finished')
         elif resize[0] != image.size[0] or resize[1] != image.size[1]:
             # TODO: Use fast setting to use scale instead of resize
             print('resizing with imagemagick')
             if subprocess.Popen([convert_binary, src, '-resize',
-                '{}x{}!'.format(*resize), path]).wait():
+                '{}x{}!'.format(*resize), '-depth', '8', path]).wait():
                 raise Exception("Error while resizing "+image.name)
             print('resizing finished')
         else:
             print('converting with imagemagick')
-            if subprocess.Popen([convert_binary, src, path]).wait():
+            if subprocess.Popen([convert_binary, src, '-depth', '8', path]).wait():
                 raise Exception("Error while converting "+image.name)
             print('converting finished')
     except:

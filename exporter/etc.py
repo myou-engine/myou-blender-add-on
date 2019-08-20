@@ -27,7 +27,7 @@ def encode_etc2_fast(in_path, out_path, sRGB, use_alpha, use_etc2, use_gzip):
         os.unlink(os.path.join(temp, 'outa.pvr'))
         os.unlink(flip)
     except: pass
-    subprocess.Popen([convert_binary, in_path, '-flip', flip]).wait()
+    subprocess.Popen([convert_binary, in_path, '-flip', '-depth', '8', flip]).wait()
     command = [etcpak_binary, flip, '-m']
     if use_etc2:
         command.append('-etc2')
