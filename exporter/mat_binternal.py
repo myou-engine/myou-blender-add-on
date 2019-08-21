@@ -50,7 +50,10 @@ def get_dynamic_constants(mat, scn, paths, code):
         restore.append([is_vector,obj,attr,orig_obj,orig_val])
 
     scn.update()
-    sh = gpu.export_shader(scn, mat)
+    try:
+        sh = gpu.export_shader(scn, mat)
+    except:
+        raise Exception("Couldn't export shader of material {}".format(mat.name))
     c = sh['fragment'].rsplit('}', 2)[1]
 
     for sentinel, vlen, value in lookup_data:
@@ -85,7 +88,10 @@ def mat_to_json_try(mat, scn):
         get_animation_data_strips = exporter.get_animation_data_strips
 
     # NOTE: This export is replaced later
-    shader = gpu.export_shader(scn, mat)
+    try:
+        shader = gpu.export_shader(scn, mat)
+    except:
+        raise Exception("Couldn't export shader of material {}".format(mat.name))
     parts = shader['fragment'].rsplit('}',2)
     shader['fragment'] = ('\n'+parts[1]+'}')
 
