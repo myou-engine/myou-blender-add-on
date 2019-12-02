@@ -40,6 +40,7 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                 'form_factor', 'step_height', 'jump_speed', 'fall_speed'):
                     setattr(nob.game, attr, getattr(ob.game, attr))
             # TODO: PROBES
+            nob['text_body'] = ob.data.body
             for k,v in ob.items():
                 nob[k] = v
             ob = nob
