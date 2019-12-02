@@ -315,12 +315,13 @@ def export_images(dest_path, used_data):
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
                             quality = 'veryfast'
-                        file_name = file_name_base + fast + '-{w}x{h}.astc'.format(w=width, h=height)
+                        astc_mode = scene.myou_export_astc_mode
+                        file_name = file_name_base + fast + '-{f}-{w}x{h}.astc'.format(f=astc_mode, w=width, h=height)
                         exported_path = os.path.join(dest_path, file_name)
                         if not exists(exported_path):
-                            encode_astc(get_png_or_jpg(), exported_path,
+                            encode_astc(get_png(), exported_path,
                                 scene.myou_export_astc_mode, quality, is_sRGB)
-                        format_enum = get_astc_format_enum(scene.myou_export_astc_mode, is_sRGB)
+                        format_enum = get_astc_format_enum(astc_mode, is_sRGB)
                         # TODO: query exported size?
                         image_info['formats']['astc'].append({
                             'width': image.size[0], 'height': image.size[1],
