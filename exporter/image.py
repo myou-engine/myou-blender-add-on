@@ -181,6 +181,13 @@ def export_images(dest_path, used_data):
         if uses_alpha:
             print('image:', image.name, 'is using alpha channel')
         if lod_levels:
+            def f(lod_level):
+                if isinstance(lod_level, int):
+                    width = height = lod_level
+                else:
+                    width, height = lod_level
+                return width*height
+            lod_levels.sort(key=f)
             print('image:', image.name, 'has lod_levels', lod_levels)
 
         base_level_list = []
