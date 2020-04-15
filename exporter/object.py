@@ -205,8 +205,8 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             curves.append(curve)
 
         data = {'curves': curves, 'resolution': ob.data.resolution_u}
-        if True:#getattr(ob, 'pre_calc', False):
-            data['nodes'] = calc_curve_nodes(data['curves'],data['resolution'])
+        # if True:#getattr(ob, 'pre_calc', False):
+        #     data['nodes'] = calc_curve_nodes(data['curves'],data['resolution'])
 
         #print(curves)
     elif obtype=='CAMERA':
