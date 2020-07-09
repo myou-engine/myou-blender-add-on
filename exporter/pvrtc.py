@@ -15,7 +15,7 @@ def encode_pvrtc(in_path, out_path, use_fast, use_alpha, use_2bpp, use_smaller, 
     if not use_alpha:
         format += '_RGB'
     format += ',UB' # TODO: UBN or SBN for normals?
-    format += ',lRGB' # TODO: sRGB
+    format += ',sRGB' # TODO: lRGB
     quality = 'pvrtcveryfast' if use_fast else 'pvrtcbest'
 
     square = '+'
