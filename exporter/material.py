@@ -63,6 +63,7 @@ def mat_to_json(mat, scn, used_data):
         code = gen.get_code()
         uniforms = gen.get_uniforms()
         varyings = gen.get_varyings()
+        ob_properties = gen.get_ob_properties() or None
         # pprint(uniforms)
         material_type = 'BLENDER_CYCLES_PBR'
         return dict(
@@ -72,6 +73,7 @@ def mat_to_json(mat, scn, used_data):
             fragment=code,
             uniforms=uniforms,
             varyings=varyings,
+            ob_properties=ob_properties,
             ramps=ramps, # To be removed and converted to textures in exporter.py
         )
 
@@ -86,6 +88,7 @@ def world_material_to_json(scn):
         code = gen.get_code()
         uniforms = gen.get_uniforms()
         varyings = gen.get_varyings()
+        ob_properties = gen.get_ob_properties() or None
         # pprint(uniforms)
         material_type = 'BLENDER_CYCLES_PBR'
         return dict(
@@ -95,6 +98,7 @@ def world_material_to_json(scn):
             fragment=code,
             uniforms=uniforms,
             varyings=varyings,
+            ob_properties=ob_properties,
             ramps=ramps, # To be removed and converted to textures in exporter.py
             fixed_z=1,
         )

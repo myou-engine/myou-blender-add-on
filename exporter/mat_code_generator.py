@@ -98,6 +98,7 @@ class NodeTreeShaderGenerator:
             self.op_cache = parent_tree.op_cache
             self.uniforms = parent_tree.uniforms
             self.varyings = parent_tree.varyings
+            self.ob_properties = parent_tree.ob_properties
             self.parent_tree = parent_tree
             self.parent_inputs = parent_inputs
         else:
@@ -108,6 +109,7 @@ class NodeTreeShaderGenerator:
             self.op_cache = {}
             self.uniforms = OrderedDict()
             self.varyings = OrderedDict()
+            self.ob_properties = OrderedDict()
             self.parent_tree = None
             self.parent_inputs = None
             # This is not called manually and must generate code, uniforms, etc
@@ -149,6 +151,9 @@ class NodeTreeShaderGenerator:
                 # '#endif',
             ]
 
+        # print('\n'.join(uniforms))
+        # print('\n'.join(self.code))
+
         return '\n'.join(
             ['#if __VERSION__ >= 130',
             'out vec4 glOutColor;',
@@ -185,6 +190,9 @@ class NodeTreeShaderGenerator:
             d['varname'] = str(v)
             r.append(d)
         return r
+
+    def get_ob_properties(self):
+        return self.ob_properties
 
     def join_code(self, code):
         indent = '    '
@@ -315,6 +323,27 @@ class NodeTreeShaderGenerator:
 
     #def unfcameratexfactors(self):
         # TODO: also enable gl_ProjectionMatrix
+
+    ## Literal input nodes (with properties.xxx label)
+
+    def rgb(self, invars, props):
+        name = props['label'].split('.')[1]
+        self.ob_properties[name] = props['Color']
+        return '', {'Color': self.uniform(dict(
+            name=name,
+            type='OB_PROPERTY',
+            datatype='color4',
+        ))}
+
+    def value(self, invars, props):
+        name = props['label'].split('.')[1]
+        self.ob_properties[name] = props['Value']
+        return '', {'Value': self.uniform(dict(
+            name=name,
+            type='OB_PROPERTY',
+            datatype='float',
+        ))}
+
 
     ## Indirect node functions (called by direct ones below) ##
 

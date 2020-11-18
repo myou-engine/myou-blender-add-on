@@ -115,8 +115,9 @@ def export_node(node, ramps):
                     'socket':unique_socket_name(link.from_socket),
                 }
                 if link.from_node.type in ['VALUE','RGB']:
-                    # This will make the input socket adopt the output of value/RGB nodes
-                    socket_with_possible_value = link.from_socket
+                    if not link.from_node.label.startswith('properties.'):
+                        # This will make the input socket adopt the output of value/RGB nodes
+                        socket_with_possible_value = link.from_socket
         if hasattr(socket_with_possible_value, 'default_value'):
             value = socket_with_possible_value.default_value
             if hasattr(value, '__iter__'):
@@ -153,6 +154,16 @@ def export_node(node, ramps):
         out_props['ramp_name'] = get_ramp_hash(node.color_ramp, ramps)
     elif node.type == 'NORMAL':
         out['properties'] = {'normal': list(node.outputs['Normal'].default_value)}
+    elif node.type == 'RGB':
+        out['properties'] = {
+            'label': node.label,
+            'Color': list(node.outputs['Color'].default_value),
+        }
+    elif node.type == 'VALUE':
+        out['properties'] = {
+            'label': node.label,
+            'Value': node.outputs['Value'].default_value,
+        }
     # pprint(out)
     return out
 
