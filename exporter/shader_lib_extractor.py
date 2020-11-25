@@ -100,16 +100,23 @@ replacements = [
     # we'll assign the uniform on run time
     (re.compile(r'(uniform vec3 node_wavelength_LUT\[81\]).*?\);', flags=re.DOTALL),r'\1;'),
     ('transpose(mat3(T1, T2, N))','mat3(T1.x, T2.x, N.x, T1.y, T2.y, N.y, T1.z, T2.z, N.z)'),
+    # Add uniform for moving jitter
+    ('setup_noise(gl_FragCoord.xy);', 'setup_noise(gl_FragCoord.xy+unfjitteroffset);'),
 
-    # disable dynamic loops in webgl1
+    # disable dynamic loops in webgl1 (also add unfjitteroffset used above)
     ('uniform vec2 unfbsdfsamples;', '''
 #if __VERSION__ < 130
-#define unfbsdfsamples vec2(1.0)
+#ifndef bsdf_samples
 #define bsdf_samples 1.0
+#endif
+#define unfbsdfsamples vec2(1.0, 1.0/bsdf_samples)
 #else
 uniform vec2 unfbsdfsamples;
+#ifndef bsdf_samples
 #define bsdf_samples unfbsdfsamples.x
 #endif
+#endif
+uniform vec2 unfjitteroffset;
     '''),
     # ('for (float i = 0.0; i < unfbsdfsamples.x; i++) {',
     # 'float i; for (int iii = 0; iii < 32; iii++) { i = float(iii);'),
