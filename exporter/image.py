@@ -25,6 +25,14 @@ def previous_POT(x):
     if x<=0: return 0
     return int(pow(2, floor(log(x)/log(2))))
 
+def get_image_path(image):
+    if image.library and image.filepath and image.filepath.startswith('//'):
+        return os.path.join(
+            os.path.dirname(bpy.path.abspath(image.library.filepath)),
+            image.filepath[2:]
+        )
+    return bpy.path.abspath(image.filepath)
+
 def save_image(image, path, new_format, resize=None, flip=False):
     name = image.name
 
@@ -49,7 +57,7 @@ def save_image(image, path, new_format, resize=None, flip=False):
             image.save_render(path)
             src = path
         else:
-            src = bpy.path.abspath(image.filepath)
+            src = get_image_path(image)
         if not resize:
             resize = image.size
         if flip:
@@ -134,7 +142,7 @@ def export_images(dest_path, used_data):
             lod_levels = parse_lod_levels(scene['texture_lod_levels'])
         include_base_level = scene.get('include_base_level', True)
 
-        real_path = bpy.path.abspath(image.filepath)
+        real_path = get_image_path(image)
         tmp_filepath = None
         path_exists = os.path.isfile(real_path)
         # get_png_or_jpg is a function for format encoders that only understand png, jpg
@@ -462,7 +470,7 @@ def image_has_alpha(image):
         # make sure it has an alpha channel at all
         # by saving it as PNG and parsing the meta data
         if image.file_format not in ['JPEG', 'TIFF'] and image.frame_duration < 2:
-            path = bpy.path.abspath(image.filepath)
+            path = get_image_path(image)
             # TODO: swap conditions?
             if image.file_format == 'PNG' and os.path.isfile(path):
                 return png_file_has_alpha(path)
