@@ -323,14 +323,15 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     #       while there's only needed usually for one or none
     #       and the engine can only take one at the moment
     orig_face_tangents = []
-    face_uv_winding = []
+    face_uv_windings = []
     verts = ob.data.vertices
     polys = ob.data.polygons
-    for uv_layer in ob.data.uv_layers[-1:]:
+    for uv_layer in ob.data.uv_layers:
         if not export_tangents:
             continue
         uv_data = uv_layer.data
         tangents = []
+        face_uv_winding = []
         for i in range(len(uv_layer.data)//3):
             i3 = i*3
             vi = polys[i].vertices
@@ -351,6 +352,17 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
             tangents.append(tangent)
             face_uv_winding.append(w)
         orig_face_tangents.append(tangents)
+        face_uv_windings.append(face_uv_winding)
+
+        #ob.data.calc_tangents()
+        # tangents = []
+        # face_uv_winding = []
+        # i = 0
+        # for loop in ob.data.loops:
+        #     tangents.append(loop.tangent.copy()*loop.bitangent_sign)
+        #     face_uv_winding.append(loop.bitangent_sign)
+        # orig_face_tangents.append(tangents)
+        # face_uv_windings.append(face_uv_winding)
     # t=perf_t(t)
 
     # Split faces by UV islands, material and uv winding (for tangent vectors)
@@ -422,11 +434,12 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
         # t=perf_t(t)
         # print("Splitting faces by uv winding (for tangent vectors):")
         # Split faces by uv winding (for tangent vectors)
-        if face_uv_winding:
-            for i in range(len(faces)):
-                faces[i].select = face_uv_winding[i] >= 0
-            bpy.ops.mesh.region_to_loop()
-            bpy.ops.mesh.edge_split()
+        if face_uv_windings:
+            for face_uv_winding in face_uv_windings:
+                for i in range(len(faces)):
+                    faces[i].select = face_uv_winding[i] >= 0
+                bpy.ops.mesh.region_to_loop()
+                bpy.ops.mesh.edge_split()
         bpy.ops.object.mode_set(mode='OBJECT')
         ob.data.update()
     else:
@@ -501,13 +514,13 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     # TODO NOTE this is wrong when there are several UV
     # because it has to be done with the seaming of only one UV
     tangent_layers = []
-    for orig in orig_face_tangents:
+    for orig,orig_windings in zip(orig_face_tangents, face_uv_windings):
         tangents = [Vector() for v in ob.data.vertices]
         winding = [0] * len(ob.data.vertices)
         for i in range(len(ob.data.polygons)):
             for v in ob.data.polygons[i].vertices:
                 tangents[v] += orig[i]
-                winding[v] = face_uv_winding[i]
+                winding[v] = orig_windings[i]
         for i in range(len(ob.data.vertices)):
             tangents[i].normalize()
         tangent_layers.append((tangents,winding))
@@ -767,7 +780,7 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
             vertices[j] = int(round(ta.x*127))
             vertices[j+1] = int(round(ta.y*127))
             vertices[j+2] = int(round(ta.z*127))
-            vertices[j+3] = windings[i]
+            vertices[j+3] = int(windings[i])
             j += 4
 
         for p in particles:
@@ -831,8 +844,8 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     #t=perf_t(t)
 
     try:
-        struct.pack_into('<'+vformat*len(v_map), binv, 0, *vertices)
-        struct.pack_into('<'+'H'*len(indices), bini, 0, *indices)
+    struct.pack_into('<'+vformat*len(v_map), binv, 0, *vertices)
+    struct.pack_into('<'+'H'*len(indices), bini, 0, *indices)
     except:
         ob.hide = hide
         ob.data = orig_data
@@ -875,8 +888,8 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     if ob.data.shape_keys:
         for shape in ob.data.shape_keys.key_blocks[1:]:
             elements.append(['shape_b' if byte_shapes else 'shape', shape.name])
-    for t in tangent_layers:
-        elements.append(['tangent'])
+    for t,uv_name in zip(tangent_layers, uv_names):
+        elements.append(['tangent', uv_name])
     if particles:
         elements.append(['particles', len(particles)])
     for uv_name in uv_names:

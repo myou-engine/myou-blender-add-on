@@ -49,7 +49,7 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             hash = mesh_hash.mesh_hash(ob, used_data, [sort, generate_tangents, is_phy])
             mesh_cache = scn['game_tmp_path'] + hash + '.mesh'
             metadata_cache = scn['game_tmp_path'] + hash + '.json'
-            if not os.path.isfile(mesh_cache):
+            if not os.path.isfile(mesh_cache) or scn.get('no_cache', False):
                 progress.add()
                 if not is_phy:
                     split_parts = len(ob.data.vertices)//64000 + 1 # first approximation
