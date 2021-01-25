@@ -146,6 +146,7 @@ def export_node(node, ramps):
         # we're embedding the group for now
         # (the better way is to have each group converted once)
         out_props['node_tree'] = export_nodes_of_group(node.node_tree, ramps)
+        out_props['node_tree']['input_names'] = [input.name for input in node.inputs]
     elif node.type == 'CURVE_RGB':
         out_props['ramp_name'] = get_rgba_curve_hash(node.mapping, ramps)
     elif node.type == 'CURVE_VEC':

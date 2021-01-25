@@ -81,7 +81,7 @@ class Variable:
 
 class NodeTreeShaderGenerator:
 
-    def __init__(self, tree, lamps, parent_tree=None, parent_inputs=None):
+    def __init__(self, tree, lamps, parent_tree=None, parent_inputs=None, shared_code=True):
         # Format of tree:
         # defined in mat_nodes.py
         # Format of lamps:
@@ -93,11 +93,15 @@ class NodeTreeShaderGenerator:
         if parent_tree:
             # GROUP
             self.node_cache = parent_tree.node_cache
-            self.code = parent_tree.code
+            if shared_code:
+                self.code = parent_tree.code
+            else:
+                self.code = []
             self.tmp_vars = parent_tree.tmp_vars
             self.op_cache = parent_tree.op_cache
             self.uniforms = parent_tree.uniforms
             self.varyings = parent_tree.varyings
+            self.libraries = parent_tree.libraries
             self.ob_properties = parent_tree.ob_properties
             self.parent_tree = parent_tree
             self.parent_inputs = parent_inputs
@@ -109,6 +113,7 @@ class NodeTreeShaderGenerator:
             self.op_cache = {}
             self.uniforms = OrderedDict()
             self.varyings = OrderedDict()
+            self.libraries = OrderedDict()
             self.ob_properties = OrderedDict()
             self.parent_tree = None
             self.parent_inputs = None
@@ -165,6 +170,7 @@ class NodeTreeShaderGenerator:
             clip_head+
             varyings+
             uniforms+
+            list(self.libraries.values())+
             ['void main(){']+
             ['    '+self.join_code(
                 clip_body+
@@ -1343,8 +1349,29 @@ class NodeTreeShaderGenerator:
 
     def group(self, invars, props):
         tree_gen = NodeTreeShaderGenerator(
-            props['node_tree'], self.lamps, self, invars)
-        return '', tree_gen.get_output_node()
+            props['node_tree'], self.lamps, self, invars, True)
+        code = ''
+        output = tree_gen.get_output_node()
+        # from pprint import pprint
+        name = props['node_tree']['group_name']
+        if name.endswith('.glsl'):
+            import bpy
+            libcode = self.libraries[name] = bpy.data.texts[name].as_string()
+            fun_name = name.split('.')[0]
+            in_vars = []
+            for name in props['node_tree']['input_names']:
+                # TODO: unconnected?
+                in_vars.append(str(invars[name]))
+            # HACK!! add sampler input if present in code
+            if 'in sampler2D ' in libcode:
+                last_uniform = list(self.uniforms.items()).pop()[1][1]
+                in_vars.append(str(last_uniform))
+            out_vars = []
+            for k,v in output.items():
+                if k:
+                    out_vars.append(str(v))
+            code = "{}({}, {});".format(fun_name, ','.join(in_vars), ','.join(out_vars))
+        return code, output
 
     def group_input(self, invars, props):
         return '', self.parent_inputs
