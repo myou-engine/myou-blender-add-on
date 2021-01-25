@@ -203,6 +203,10 @@ def export_images(dest_path, used_data):
         if image.source == 'FILE':
             out_format = 'JPEG'
             out_ext = 'jpg'
+            if bpy.context.scene.myou_export_JPEG_compress != 'COMPRESS' \
+                and image.file_format != 'JPEG':
+                    out_format = 'PNG'
+                    out_ext = 'png'
             if uses_alpha:
                 out_format = 'PNG'
                 out_ext = 'png'
