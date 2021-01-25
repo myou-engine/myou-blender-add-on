@@ -844,8 +844,8 @@ def convert_mesh(ob, scn, file_hash, split_parts=1, sort=True, export_tangents=F
     #t=perf_t(t)
 
     try:
-    struct.pack_into('<'+vformat*len(v_map), binv, 0, *vertices)
-    struct.pack_into('<'+'H'*len(indices), bini, 0, *indices)
+        struct.pack_into('<'+vformat*len(v_map), binv, 0, *vertices)
+        struct.pack_into('<'+'H'*len(indices), bini, 0, *indices)
     except:
         ob.hide = hide
         ob.data = orig_data
