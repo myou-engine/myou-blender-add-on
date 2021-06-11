@@ -208,6 +208,8 @@ def export_images(dest_path, used_data):
                 if potw != width or poth != height:
                     base_level_list = [[potw, poth]]
 
+        skip_compression = image.get('skip_compression', False)
+
         if image.source == 'FILE':
             out_format = 'JPEG'
             out_ext = 'jpg'
@@ -234,7 +236,7 @@ def export_images(dest_path, used_data):
 
                     # TODO: Don't convert and flip images all the time!
 
-                    if scene.myou_export_DXT:
+                    if scene.myou_export_DXT and not skip_compression:
                         # TODO: For some reason SOME non-square textures fail
                         # to display in the engine. Making them square for now
                         if scene.myou_export_square=='SMALLER':
@@ -255,7 +257,7 @@ def export_images(dest_path, used_data):
                             'file_name': file_name, 'file_size': fsize(exported_path),
                         })
 
-                    if scene.myou_export_ETC1 and not uses_alpha:
+                    if scene.myou_export_ETC1 and not uses_alpha and not skip_compression:
                         fast = ''
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
@@ -276,7 +278,7 @@ def export_images(dest_path, used_data):
                             'bpp': 4,
                         })
 
-                    if scene.myou_export_ETC2:
+                    if scene.myou_export_ETC2 and not skip_compression:
                         fast = ''
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
@@ -298,7 +300,7 @@ def export_images(dest_path, used_data):
                             'bpp':8 if uses_alpha or rg11 else 4,
                         })
 
-                    if scene.myou_export_PVRTC:
+                    if scene.myou_export_PVRTC and not skip_compression:
                         fast = square = ''
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
@@ -326,7 +328,7 @@ def export_images(dest_path, used_data):
                             'bpp': bpp,
                         })
 
-                    if scene.myou_export_ASTC:
+                    if scene.myou_export_ASTC and not skip_compression:
                         if not astc_binary_checked:
                             download_astc_tools_if_needed()
                         fast = ''
