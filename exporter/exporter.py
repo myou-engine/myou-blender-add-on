@@ -459,6 +459,8 @@ def export_myou(path, scn):
             tex_abs = join(textures_path, tex)
             if tex not in used_textures and os.path.isfile(tex_abs):
                 os.remove(tex_abs)
+        from pathlib import Path
+        (Path(full_dir)/'.myou').touch()
         print('=== Export has finished successfully ===')
     except:
         import datetime
