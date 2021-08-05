@@ -33,7 +33,7 @@ def get_image_path(image):
         )
     return bpy.path.abspath(image.filepath)
 
-def save_image(image, path, new_format, resize=None, flip=False):
+def save_image(image, path, new_format, resize=None, flip=False, force32=False):
     name = image.name
 
     # Store current render settings
@@ -60,6 +60,8 @@ def save_image(image, path, new_format, resize=None, flip=False):
             src = get_image_path(image)
         if not resize:
             resize = image.size
+        if force32:
+            path = 'png32:'+path
         if flip:
             # TODO: Use fast setting to use scale instead of resize
             print('resizing with imagemagick')
@@ -115,12 +117,14 @@ def export_images(dest_path, used_data):
             raise ValueError('You are using a render result as texture, please save it as image first.')
 
         image_hash = get_image_hash(image)
+        print('hash', image_hash)
         file_name_base = image_hash
 
         # Find settings in textures. Since there's no UI in Blender for
         # custom properties of images, we'll look at them in textures.
         # Alternatively we'll find global settings in the scene as "texture_lod_levels"
         tex_with_settings = None
+        skip_compression = False
         for tex in used_data['image_texture_slots'][image.name]:
             if 'lod_levels' in tex:
                 if not tex_with_settings:
@@ -128,6 +132,10 @@ def export_images(dest_path, used_data):
                 else:
                     raise Exception('There are several textures with settings for image '+image.name+':\n'+
                         tex_with_settings.name+' and '+tex.name+'. Please remove settings from one of them')
+            if tex.get('skip_compression'):
+                skip_compression = True
+        if image.get('skip_compression'):
+            skip_compression = True
 
         def parse_lod_levels(levels):
             if isinstance(levels, str):
@@ -153,13 +161,17 @@ def export_images(dest_path, used_data):
                 tmp_filepath = tempfile.mktemp('.png')
                 save_image(image, tmp_filepath, 'PNG')
             return tmp_filepath
-        if path_exists and (image.file_format in ['PNG','JPEG'] or image.source == 'MOVIE'):
+        # Blender identifies unknown file formats (like svg) as "TARGA" (also movies?)
+        # TODO: support actual TGA images?
+        if path_exists and (image.file_format in ['PNG', 'JPEG', 'TARGA'] or image.source == 'MOVIE'):
             get_png_or_jpg = lambda: real_path
-            if image.file_format in ['PNG', 'TGA', 'TARGA']:
+            if image.file_format in ['PNG', 'TARGA']:
                 get_png = get_png_or_jpg
+                print('using real path')
         else:
             get_png_or_jpg = get_png
         uses_alpha = image['has_alpha'] # assigned in get_image_hash()
+        is_svg = real_path.endswith('svg')
         # is_sRGB = not used_data['image_is_normal_map'].get(image.name, False)
         # if is_sRGB:
         #     print('Image',image.name,'is sRGB')
@@ -187,7 +199,11 @@ def export_images(dest_path, used_data):
         num_tex_users = len(used_data['image_texture_slots'][image.name])
         print('Exporting image:', image.name, 'with', num_tex_users, 'texture users')
         if uses_alpha:
-            print('image:', image.name, 'is using alpha channel')
+            print('image:', image.name, 'is using alpha channel, will skip some formats')
+        else:
+            print('image:', image.name, 'is using NOT alpha channel')
+        if skip_compression:
+            print('    skipping texture compression')
         if lod_levels:
             def f(lod_level):
                 if isinstance(lod_level, int):
@@ -248,7 +264,7 @@ def export_images(dest_path, used_data):
                         print("S3TC out path:", exported_path)
                         if not exists(exported_path):
                             tmp = tempfile.mktemp()+'.png'
-                            save_image(image, tmp, 'PNG', resize=(width, height), flip=True)
+                            save_image(image, tmp, 'PNG', resize=(width, height), flip=True, force32=True)
                             encode_s3tc(tmp, exported_path, uses_alpha, scene.myou_export_compress_scene)
                             os.unlink(tmp)
                         # TODO: detect punchthrough alpha?
@@ -355,21 +371,22 @@ def export_images(dest_path, used_data):
                         # Cases in which we can or must skip conversion
                         just_copy_file = \
                             path_exists and \
-                            (image.file_format == out_format or skip_conversion) and \
+                            (image.file_format == out_format or skip_conversion or is_svg) and \
                             lod_level is None
                         if just_copy_file:
-                            file_name = file_name_base + '.' + out_ext
-                            exported_path = os.path.join(dest_path, file_name)
                             # The next 2 lines are only necessary for skip_conversion
                             out_ext = image.filepath_raw.split('.')[-1]
                             image['exported_extension'] = out_ext
+                            print(file_name_base,  '.', out_ext)
+                            file_name = file_name_base + '.' + out_ext
+                            exported_path = os.path.join(dest_path, file_name)
                             if not exists(exported_path):
                                 shutil.copy(real_path, exported_path)
                             image_info['formats'][out_format.lower()].append({
                                 'width': image.size[0], 'height': image.size[1],
                                 'file_name': file_name, 'file_size': fsize(exported_path),
                             })
-                            print('Copied original image')
+                            print('Copied original image as', file_name)
                         else:
                             if lod_level is not None:
                                 file_name = file_name_base + '-{w}x{h}.{e}'.format(w=width, h=height, e=out_ext)
@@ -436,7 +453,7 @@ def export_images(dest_path, used_data):
         # (if you don't change the max range, the final value used gets clamped)
         for fmt, datas in image_info['formats'].items():
             for data in datas:
-                if fmt in ['png', 'jpeg'] and \
+                if fmt in ['png', 'jpeg'] and not is_svg and \
                         max(data['width'],data['height']) <= scene.get('embed_max_size', 64) and \
                         data.get('file_name', None):
                     exported_path = os.path.join(dest_path, data['file_name'])
@@ -471,7 +488,7 @@ def image_has_alpha(image):
         # If it's not a format known to not have alpha channel,
         # make sure it has an alpha channel at all
         # by saving it as PNG and parsing the meta data
-        if image.file_format not in ['JPEG', 'TIFF'] and image.frame_duration < 2:
+        if image.file_format not in ['JPEG', 'TIFF', 'TARGA'] and image.frame_duration < 2:
             path = get_image_path(image)
             # TODO: swap conditions?
             if image.file_format == 'PNG' and os.path.isfile(path):
@@ -483,6 +500,7 @@ def image_has_alpha(image):
                 os.unlink(tmp_filepath)
                 return has_alpha
         else:
+            # TODO: Support actual TGAs?
             return False
     else:
         return image.file_format != 'JPEG'
@@ -550,7 +568,7 @@ hash_version = 3 # increment when there's any change on texture conversion
 def get_image_hash(image):
     recompute_hash = True
     filename = abspath(image.filepath)
-    if 'image_hash' in image:
+    if image.get('image_hash'):
         # get date (from file or packed crc)
         # if packed
         #    if png, get crc date
@@ -591,7 +609,7 @@ def get_image_hash(image):
             image['hash_date'] = 0
             image['hash_file_name'] = ''
             image['has_alpha'] = True
-            return
+            return image.name
         # convert digest to unpadded base64url
         hash = codecs.encode(digest, 'base64').strip(b'=\n') \
             .replace(b'+',b'-').replace(b'/',b'_').decode()
