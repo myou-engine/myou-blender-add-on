@@ -87,6 +87,11 @@ def mesh_hash(ob, used_data, extra_data):
         ob.data.uv_layers[i].data.foreach_get('uv', uv_data)
         hash.update(to_bytes(uv_data))
 
+    color_data = np.empty(num_indices*3, dtype=np.float32)
+    for i in range(len(ob.data.vertex_colors)):
+        ob.data.vertex_colors[i].data.foreach_get('color', color_data)
+        hash.update(to_bytes(color_data))
+
     # t = perf_t(t)
 
     if ob.vertex_groups:
