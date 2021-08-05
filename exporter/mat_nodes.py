@@ -215,7 +215,8 @@ def export_nodes_of_material(mat): # NOTE: mat can also be a world
     output_node = None
     nodes = {}
     ramps = {}
-    out_types = OUTPUT_NODE_TYPE[bpy.context.scene.render.engine]
+    # out_types = OUTPUT_NODE_TYPE[bpy.context.scene.render.engine]
+    out_types = OUTPUT_NODE_TYPE['CYCLES']
     for node in mat.node_tree.nodes:
         if node.type in out_types:
             output_node = node
