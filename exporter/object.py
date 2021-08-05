@@ -1,3 +1,6 @@
+# import faulthandler
+# faulthandler.enable()
+
 import bpy
 from .mesh import convert_mesh
 from .phy_mesh import convert_phy_mesh
@@ -12,7 +15,19 @@ import re
 from math import *
 from pprint import pprint
 
+from time import perf_counter
+import inspect
+def perf_t(last_t,p=True,message=''):
+    t = perf_counter()
+    linenum = inspect.stack()[1][2]
+    if p:
+        print(message + "{}s -> line:{}".format("%.2f" % (t-last_t), linenum))
+    return t
+
+
 def ob_to_json(ob, scn, used_data, export_pose=True):
+    t = perf_counter()
+
     progress.add()
     scn = scn or [scn for scn in bpy.data.scenes if ob.name in scn.objects][0]
     data = {}
@@ -24,12 +39,13 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
     obname = ob.name
     ob_anim_data = ob.animation_data
 
-    if obtype=='MESH' or obtype == 'FONT':
-        if obtype == 'FONT':
+    convert_to_mesh = ob.get('export_as_mesh', obtype == 'FONT')
+    if obtype == 'MESH' or convert_to_mesh:
+        if convert_to_mesh:
             nob = bpy.data.objects.new('', ob.to_mesh(scn, True, 'PREVIEW'))
             scn.objects.link(nob)
             for attr in ('location', 'rotation_euler', 'rotation_quaternion',
-                'parent', 'matrix_parent_inverse', 'scale', 'color',
+                'parent', 'scale', 'color',
                 'rotation_mode', 'parent_type', 'parent_bone', 'dupli_group'):
                     setattr(nob, attr, getattr(ob, attr))
             for attr in ('physics_type', 'radius', 'use_anisotropic_friction',
@@ -39,28 +55,45 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                 'lock_location_x', 'lock_location_y', 'lock_location_z',
                 'form_factor', 'step_height', 'jump_speed', 'fall_speed'):
                     setattr(nob.game, attr, getattr(ob.game, attr))
-            # TODO: PROBES
-            nob['text_body'] = ob.data.body
+            nob.matrix_parent_inverse = ob.matrix_parent_inverse.copy()
+            if hasattr(ob, 'probe_type'):
+                for attr in ('probe_clip_bias', 'probe_clip_end', 'probe_clip_start',
+                    'probe_compute_sh', 'probe_object', 'probe_parallax_type',
+                    'probe_parallax_volume', 'probe_reflection_plane', 'probe_refresh_auto',
+                    'probe_refresh_double', 'probe_sh_quality', 'probe_size', 'probe_type', 'probe_use_layers',):
+                        setattr(nob, attr, getattr(ob, attr))
+            if obtype == 'FONT':
+                nob['text_body'] = ob.data.body
             for k,v in ob.items():
                 nob[k] = v
+            nob['export_as_mesh'] = False
             ob = nob
         generate_tangents = any([used_data['material_use_tangent'][m.material.name] for m in ob.material_slots if m.material])
         def convert(ob, sort, is_phy=False):
+            nonlocal t
+            print('\nConverting mesh', ob.name, ob.data.name)
             hash = mesh_hash.mesh_hash(ob, used_data, [sort, generate_tangents, is_phy])
             mesh_cache = scn['game_tmp_path'] + hash + '.mesh'
             metadata_cache = scn['game_tmp_path'] + hash + '.json'
             if not os.path.isfile(mesh_cache) or scn.get('no_cache', False):
                 progress.add()
+                was_library = not not ob.library
                 if not is_phy:
-                    split_parts = len(ob.data.vertices)//64000 + 1 # first approximation
+                    if ob.library:
+                        bpy.ops.ed.undo_push()
+                        bpy.ops.object.make_local()
+                    # split_parts = len(ob.data.vertices)//64000 + 1 # first approximation
+                    split_parts = 1
                     export_data = None
                     while not export_data:
                         export_data = convert_mesh(ob, scn, hash, split_parts, sort, generate_tangents)
                         if split_parts > 10:
                             raise Exception("Mesh "+ob.name+" is too big.")
                         split_parts += 1
+                    if was_library:
+                        bpy.ops.ed.undo()
                 else:
-                    export_data = convert_phy_mesh(ob)
+                    export_data = convert_phy_mesh(ob, scn, hash)
                 open(metadata_cache,'wb').write(dumps(export_data).encode())
             else:
                 export_data = loads(open(metadata_cache,'rb').read().decode())
@@ -77,6 +110,7 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
                     pass_ = get_pass_of_material(mat, scn)
                 materials.append(name)
                 passes.append(pass_)
+            export_data['material_indices'] = []
             del export_data['material_indices']
             export_data['materials'] = materials
             export_data['passes'] = passes or [0]
@@ -132,6 +166,7 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             if phy_modifier and not phy_modifier in lod_modifiers:
                 phy_modifier.show_viewport = True
                 phy_mesh_data = convert(ob, True, True)
+                data['phy_mesh'] = phy_mesh_data
                 print('Exported phy mesh with factor:', phy_mesh_data['tri_count']/tri_count)
                 if phy_modifier in embed_modifiers:
                     scn['embed_mesh_hashes'][phy_mesh_data['hash']] = True
@@ -494,8 +529,10 @@ def ob_to_json(ob, scn, used_data, export_pose=True):
             'max_fall_speed': ob.game.fall_speed
         })
     obj.update(data)
-    if obtype == 'FONT':
+    if convert_to_mesh:
         scn.objects.unlink(nob)
+        if obtype != 'FONT':
+            bpy.data.objects.remove(nob)
     return obj
 
 def ob_in_layers(scn, ob):
@@ -505,7 +542,7 @@ def ob_in_layers(scn, ob):
 def ob_to_json_recursive(ob, scn, used_data):
     # TODO: Manage cases where the parent is not exported
     d = [ob_to_json(ob, scn, used_data)]
-    for c in ob.children:
+    for c in ob.children[:]:
         if ob_in_layers(scn, c):
             d += ob_to_json_recursive(c, scn, used_data)
     return d
