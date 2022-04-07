@@ -345,23 +345,23 @@ def export_images(dest_path, used_data):
                         })
 
                     if scene.myou_export_ASTC and not skip_compression:
-                        if not astc_binary_checked:
-                            download_astc_tools_if_needed()
                         fast = ''
                         quality = 'exhaustive'
                         if scene.myou_export_tex_quality=='FAST':
                             fast = '-fast'
-                            quality = 'veryfast'
+                            quality = 'fast'
                         astc_mode = scene.myou_export_astc_mode
                         file_name = file_name_base + fast + '-{f}-{w}x{h}.astc'.format(f=astc_mode, w=width, h=height)
                         exported_path = os.path.join(dest_path, file_name)
                         if not exists(exported_path):
-                            encode_astc(get_png(), exported_path,
+                            tmp = tempfile.mktemp()+'.png'
+                            save_image(image, tmp, 'PNG', resize=(width, height), flip=True)
+                            encode_astc(tmp, exported_path,
                                 scene.myou_export_astc_mode, quality, is_sRGB)
                         format_enum = get_astc_format_enum(astc_mode, is_sRGB)
                         # TODO: query exported size?
                         image_info['formats']['astc'].append({
-                            'width': image.size[0], 'height': image.size[1],
+                            'width': width, 'height': height,
                             'file_name': file_name, 'file_size': fsize(exported_path),
                             'sRGB': is_sRGB, 'format_enum': format_enum,
                         })
