@@ -441,24 +441,25 @@ def export_myou(path, scn):
                     else:
                         print("Warning: File doesn't exist: "+apath)
         # Delete unused textures
-        used_textures = set()
-        for scene_name in os.listdir(join(full_dir, 'scenes')):
-            json_path = join(full_dir, 'scenes', scene_name, 'all.json')
-            if os.path.exists(json_path):
-                jsonf = open(json_path)
-                textures = [img['file_name']+suffix
-                    for tex in json.load(jsonf) if tex['type'] == 'TEXTURE'
-                        for fmt in tex['formats'].values()
-                            for img in fmt
-                                for suffix in ['', '.gz']
-                                    if hasattr(img, 'keys') and 'file_name' in img
-                ]
-                used_textures.update(textures)
-                jsonf.close()
-        for tex in os.listdir(textures_path):
-            tex_abs = join(textures_path, tex)
-            if tex not in used_textures and os.path.isfile(tex_abs):
-                os.remove(tex_abs)
+        if scene.myou_delete_unused_textures:
+            used_textures = set()
+            for scene_name in os.listdir(join(full_dir, 'scenes')):
+                json_path = join(full_dir, 'scenes', scene_name, 'all.json')
+                if os.path.exists(json_path):
+                    jsonf = open(json_path)
+                    textures = [img['file_name']+suffix
+                        for tex in json.load(jsonf) if tex['type'] == 'TEXTURE'
+                            for fmt in tex['formats'].values()
+                                for img in fmt
+                                    for suffix in ['', '.gz']
+                                        if hasattr(img, 'keys') and 'file_name' in img
+                    ]
+                    used_textures.update(textures)
+                    jsonf.close()
+            for tex in os.listdir(textures_path):
+                tex_abs = join(textures_path, tex)
+                if tex not in used_textures and os.path.isfile(tex_abs):
+                    os.remove(tex_abs)
         from pathlib import Path
         (Path(full_dir)/'.myou').touch()
         print('=== Export has finished successfully ===')

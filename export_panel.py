@@ -45,6 +45,7 @@ class LayoutDemoPanel(bpy.types.Panel):
             layout.prop(scene, "myou_export_convert_to_quats")
             layout.prop(scene, "myou_export_optimize_glsl")
             layout.prop(scene, "myou_export_copy_files")
+            layout.prop(scene, "myou_delete_unused_textures")
 
             layout.label(text="Encode textures:")
             layout.prop(scene, "myou_ensure_pot_textures")
@@ -358,6 +359,7 @@ def register():
     bpy.types.Scene.myou_export_name = StringProperty()
     bpy.types.Scene.myou_export_copy_files = StringProperty(name='Copy extra files', description='Copy these files after export, relative to .blend file and separated by spaces')
     bpy.types.Scene.myou_ensure_pot_textures = BoolProperty(name='Ensure textures are power of 2', default=True)
+    bpy.types.Scene.myou_delete_unused_textures = BoolProperty(name='Delete unused textures', default=True)
 
     @persistent
     def f(scene):
